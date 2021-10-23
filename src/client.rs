@@ -1,182 +1,90 @@
 mod builder;
 mod context;
+mod event_handler;
+mod gateway_handler;
 
-use std::net::TcpStream;
-use std::sync::mpsc::{self, Sender};
+use std::net::TcpStream as StdTcpStream;
+use std::sync::mpsc;
+use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, Instant};
 
-use serde_json::json;
-use tungstenite::stream::MaybeTlsStream;
-use tungstenite::WebSocket;
+use mio::net::TcpStream;
+use mio::{Interest, Poll, Token};
+use serde::Deserialize;
+use tungstenite::handshake::HandshakeError;
 
-use crate::consts::API_VERSION;
-use crate::gateway::{DispatchEvent, DispatchEventKind, Event, Gateway, Ready};
+use crate::consts::{API_VERSION, GATEWAY_HOSTNAME, GATEWAY_PORT};
+use crate::gateway::{DispatchEvent, Intents, Ready};
 use crate::model::Message;
 use crate::Result;
 pub use builder::ClientBuilder;
 pub use context::Context;
+use event_handler::EventHandler;
+use gateway_handler::GatewayHandler;
 
-pub struct Client<'a> {
+pub(crate) type Callback<'a, T, U> = Box<dyn Fn(&Context, &T) -> U + 'a>;
+
+pub struct Client<'a, E> {
     token: String,
-    on_ready: Box<dyn Fn(&Context, &Ready) -> Result + 'a>,
-    on_message_create: Box<dyn Fn(&Context, &Message) -> Result + 'a>,
+    intents: Intents,
+    on_ready: Callback<'a, Ready, std::result::Result<(), E>>,
+    on_message_create: Callback<'a, Message, std::result::Result<(), E>>,
+    error_handler: Callback<'a, E, ()>,
 }
 
-impl<'a> Client<'a> {
-    pub fn start(mut self) -> Result<()> {
+impl<'a, E> Client<'a, E> {
+    pub fn run(self) -> Result<()> {
+        let (gateway_handler, event_handler) = self.connect()?;
+        let _ = thread::spawn(move || gateway_handler.run());
+        event_handler.run()?;
+        Ok(())
+    }
+
+    fn connect(self) -> Result<(GatewayHandler, EventHandler<'a, E>)> {
         let gateway = {
-            let gateway = ureq::get(&api!("/gateway"))
+            let url = ureq::get(&api!("/gateway"))
                 .call()?
-                .into_json::<Gateway>()?;
-            format!("{}/?v={}&encoding=json", gateway.url, API_VERSION)
+                .into_json::<Gateway>()?
+                .url;
+            format!("{}/?v={}&encoding=json", url, API_VERSION)
         };
-        let (mut socket, _) = tungstenite::connect(gateway)?;
-        let context = Context {
-            token: self.token.clone(),
-            agent: ureq::agent(),
+        let mut stream = {
+            let stream = StdTcpStream::connect((GATEWAY_HOSTNAME, GATEWAY_PORT))?;
+            stream.set_nonblocking(true)?;
+            TcpStream::from_std(stream)
         };
-
-        // Receive hello
-        let event = Self::get_event(&mut socket)?.unwrap();
-        let hello_event = event.hello().expect("Expected hello");
-
-        // Send identify
-        socket.write_message(Self::identify(&self.token))?;
-
-        // Receive ready
-        let event = Self::get_event(&mut socket)?.unwrap();
-        let dispatch_event = event.into_dispatch().expect("Expected dispatch");
-        let ready = dispatch_event.kind.as_ready().expect("Expected ready");
-        let last_sequence_number = dispatch_event.sequence_number;
-        let session_id = ready.session_id.clone();
-        match socket.get_mut() {
-            MaybeTlsStream::Plain(s) => s,
-            #[cfg(feature = "native-tls")]
-            MaybeTlsStream::NativeTls(s) => s.get_mut(),
-            #[cfg(feature = "rustls")]
-            MaybeTlsStream::Rustls(s) => s.get_mut(),
-            _ => unimplemented!(),
-        }
-        .set_nonblocking(true)?;
-        let (event_sender, event_receiver) = mpsc::channel::<DispatchEvent>();
-        event_sender.send(dispatch_event)?;
-        let heartbeat_interval = hello_event.heartbeat_interval;
-        let token = std::mem::take(&mut self.token);
-        let _ = thread::spawn(move || {
-            Self::event_loop(
-                socket,
-                event_sender,
-                token,
-                session_id,
-                heartbeat_interval,
-                last_sequence_number,
-            )
-        });
-
-        loop {
-            let event = event_receiver.recv().unwrap();
-            let result = match event.kind {
-                DispatchEventKind::Ready(ready) => (self.on_ready)(&context, &ready),
-                DispatchEventKind::MessageCreate(message) => {
-                    (self.on_message_create)(&context, &message)
-                }
-                DispatchEventKind::Unknown(_) => continue,
-            };
-            if let Err(err) = result {
-                println!("Error: {}", err);
-            }
-        }
-    }
-
-    fn event_loop(
-        mut socket: WebSocket<MaybeTlsStream<TcpStream>>,
-        event_sender: Sender<DispatchEvent>,
-        token: String,
-        session_id: String,
-        heartbeat_interval: Duration,
-        mut last_sequence_number: u64,
-    ) -> Result<()> {
-        let mut last_heartbeat = Instant::now();
-        let mut last_heartbeat_ack = false;
-        socket.write_message(Self::heartbeat(last_sequence_number))?;
-        loop {
-            let now = Instant::now();
-            if last_heartbeat + heartbeat_interval <= now {
-                if !last_heartbeat_ack {
-                    socket.write_message(Self::resume(
-                        &token,
-                        &session_id,
-                        last_sequence_number,
-                    ))?;
-                }
-                socket.write_message(Self::heartbeat(last_sequence_number))?;
-                last_heartbeat = now;
-                last_heartbeat_ack = false;
-            }
-            let event = Self::get_event(&mut socket)?;
-            if let Some(event) = event {
-                match event {
-                    Event::Dispatch(dispatch_event) => {
-                        last_sequence_number = dispatch_event.sequence_number;
-                        event_sender.send(dispatch_event)?;
-                    }
-                    Event::HeartbeatAck => last_heartbeat_ack = true,
-                    Event::Hello(_) => (),
-                    Event::Unknown(_) => (),
-                }
-            }
-        }
-    }
-
-    fn get_event(socket: &mut WebSocket<MaybeTlsStream<TcpStream>>) -> Result<Option<Event>> {
-        let msg = match socket.read_message() {
+        let poll = Poll::new()?;
+        poll.registry()
+            .register(&mut stream, Token(0), Interest::READABLE)?;
+        let (socket, _) = match tungstenite::client_tls(gateway, stream) {
             Ok(x) => x,
-            Err(tungstenite::Error::Io(err)) if err.kind() == std::io::ErrorKind::WouldBlock => {
-                return Ok(None)
-            }
+            Err(HandshakeError::Interrupted(mut mid_handshake)) => loop {
+                match mid_handshake.handshake() {
+                    Ok(x) => break x,
+                    Err(HandshakeError::Interrupted(new_mid_handshake)) => {
+                        mid_handshake = new_mid_handshake;
+                    }
+                    Err(err) => return Err(err.into()),
+                }
+            },
             Err(err) => return Err(err.into()),
         };
-        let event = serde_json::from_str::<Event>(&msg.into_text()?)?;
-        Ok(Some(event))
+        let token = Arc::<str>::from(self.token);
+        let (event_sender, event_receiver) = mpsc::channel::<DispatchEvent>();
+        let gateway_handler =
+            GatewayHandler::new(token.clone(), event_sender, socket, poll, self.intents);
+        let event_handler = EventHandler::new(
+            token,
+            event_receiver,
+            self.on_ready,
+            self.on_message_create,
+            self.error_handler,
+        );
+        Ok((gateway_handler, event_handler))
     }
+}
 
-    #[inline]
-    fn identify(token: &str) -> tungstenite::Message {
-        let map = json!({
-            "op": 2,
-            "d": {
-                "token": token,
-                "properties": {
-                    "$os": std::env::consts::OS,
-                    "$browser": "harmony",
-                    "$device": "harmony",
-                },
-                "intents": 1 << 9,
-            }
-        });
-        tungstenite::Message::Text(serde_json::to_string(&map).unwrap())
-    }
-
-    #[inline]
-    fn heartbeat(last_sequence_number: u64) -> tungstenite::Message {
-        let map = json!({
-            "op": 1,
-            "d": last_sequence_number,
-        });
-        tungstenite::Message::Text(serde_json::to_string(&map).unwrap())
-    }
-
-    #[inline]
-    fn resume(token: &str, session_id: &str, last_sequence_number: u64) -> tungstenite::Message {
-        let map = json!({
-            "op": 6,
-            "d": {
-                "token": token,
-                "session_id": session_id,
-                "seq": last_sequence_number
-            }
-        });
-        tungstenite::Message::Text(serde_json::to_string(&map).unwrap())
-    }
+#[derive(Deserialize)]
+struct Gateway {
+    pub url: String,
 }

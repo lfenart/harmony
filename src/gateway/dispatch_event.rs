@@ -46,7 +46,7 @@ pub enum DispatchEventKind {
 }
 
 impl DispatchEventKind {
-    pub fn as_ready(&self) -> Option<&Ready> {
+    pub const fn as_ready(&self) -> Option<&Ready> {
         match self {
             Self::Ready(event) => Some(event),
             _ => None,
@@ -60,7 +60,7 @@ impl DispatchEventKind {
         }
     }
 
-    pub fn as_message(&self) -> Option<&Message> {
+    pub const fn as_message(&self) -> Option<&Message> {
         match self {
             Self::MessageCreate(message) => Some(message),
             _ => None,

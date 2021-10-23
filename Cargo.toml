@@ -2,19 +2,21 @@
 name = "harmony"
 version = "0.1.0"
 authors = ["lfenart <lucas.fenart@protonmail.com>"]
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
 default = ["rustls"]
 rustls = ["tungstenite/rustls-tls-webpki-roots"]
-native-tls = ["tungstenite/native-tls"]
+native-tls = ["tungstenite/native-tls", "_native-tls"]
 
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+mio = { version = "0.7", default-features = false, features = ["net", "os-poll"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0", default-features = false }
 serde_repr = { version = "0.1", default-features = false }
 tungstenite = { version = "0.15", default-features = false }
 ureq = { version = "2.2", default-features = false, features = ["tls", "json"] }
+_native-tls = { version = "0.2", optional = true, default-features = false, package = "native-tls" }

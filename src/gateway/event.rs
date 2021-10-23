@@ -14,16 +14,16 @@ pub enum Event {
 }
 
 impl Event {
-    pub fn hello(&self) -> Option<&HelloEvent> {
+    pub const fn hello(&self) -> Option<&HelloEvent> {
         match self {
-            Self::Hello(event) => Some(&event),
+            Self::Hello(event) => Some(event),
             _ => None,
         }
     }
 
-    pub fn dispatch(&self) -> Option<&DispatchEvent> {
+    pub const fn dispatch(&self) -> Option<&DispatchEvent> {
         match self {
-            Self::Dispatch(event) => Some(&event),
+            Self::Dispatch(event) => Some(event),
             _ => None,
         }
     }
@@ -53,8 +53,8 @@ impl<'de> Deserialize<'de> for Event {
                     .ok_or_else(|| de::Error::missing_field("d"))?;
                 HelloEvent::deserialize(d).map(Into::into)
             }
-            Ok(OpCode::HeartbeatAck) => Ok(Event::HeartbeatAck),
-            Err(err) if err.is_data() => Ok(Event::Unknown(
+            Ok(OpCode::HeartbeatAck) => Ok(Self::HeartbeatAck),
+            Err(err) if err.is_data() => Ok(Self::Unknown(
                 map.remove("d")
                     .ok_or_else(|| de::Error::missing_field("d"))?,
             )),

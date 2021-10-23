@@ -1,15 +1,26 @@
 use std::collections::{HashMap, HashSet};
 use std::env;
+use std::error::Error;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
 use harmony::client::{ClientBuilder, Context};
-use harmony::gateway::Ready;
+use harmony::gateway::{Intents, Ready};
 use harmony::model::id::{ChannelId, UserId};
 use harmony::model::Message;
 
-fn ready(_: &Context, _: &Ready, lobbies: Arc<Mutex<HashMap<ChannelId, HashSet<UserId>>>>) {
+fn f(msg: &str) -> Option<(&str, Vec<&str>)> {
+    let mut it = msg.split_whitespace();
+    let command = it.next()?;
+    Some((command, it.collect()))
+}
+
+fn ready(
+    _ctx: &Context,
+    _: &Ready,
+    lobbies: Arc<Mutex<HashMap<ChannelId, HashSet<UserId>>>>,
+) -> Result<(), Box<dyn Error>> {
     println!("Bot started");
     thread::spawn(move || loop {
         thread::sleep(Duration::from_secs(1));
@@ -17,22 +28,36 @@ fn ready(_: &Context, _: &Ready, lobbies: Arc<Mutex<HashMap<ChannelId, HashSet<U
             let _x = lobbies.lock();
         }
     });
+    Ok(())
 }
 
 fn message_create(
     ctx: &Context,
     msg: &Message,
-    lobbies: &mut HashMap<ChannelId, HashSet<UserId>>,
-) -> harmony::Result {
-    if msg.content.starts_with("!ping") {
-        ping(ctx, msg);
-        return Ok(());
-    }
-    if msg.content.starts_with("!join") {
-        return join(ctx, msg, lobbies);
-    }
-    if msg.content.starts_with("!leave") {
-        return leave(ctx, msg, lobbies);
+    lobbies: Arc<Mutex<HashMap<ChannelId, HashSet<UserId>>>>,
+) -> Result<(), Box<dyn Error>> {
+    println!("{:#?}", msg);
+    let fs = HashMap::from([
+        (
+            "!ping",
+            Box::new(|_| {
+                ping(ctx, msg);
+                Ok(())
+            }) as Box<dyn Fn(_) -> _>,
+        ),
+        (
+            "!join",
+            Box::new(|_| join(ctx, msg, &mut lobbies.lock().unwrap())),
+        ),
+        (
+            "!leave",
+            Box::new(|_| leave(ctx, msg, &mut lobbies.lock().unwrap())),
+        ),
+    ]);
+    if let Some((command, args)) = f(&msg.content) {
+        if let Some(f) = fs.get(&command) {
+            f(args)?;
+        }
     }
     Ok(())
 }
@@ -58,7 +83,7 @@ fn join(
     ctx: &Context,
     msg: &Message,
     lobbies: &mut HashMap<ChannelId, HashSet<UserId>>,
-) -> harmony::Result {
+) -> Result<(), Box<dyn Error>> {
     if let Some(lobby) = lobbies.get_mut(&msg.channel_id) {
         if lobby.insert(msg.author.id) {
             ctx.send_message(msg.channel_id, |m| {
@@ -95,7 +120,7 @@ fn leave(
     ctx: &Context,
     msg: &Message,
     lobbies: &mut HashMap<ChannelId, HashSet<UserId>>,
-) -> harmony::Result {
+) -> Result<(), Box<dyn Error>> {
     if let Some(lobby) = lobbies.get_mut(&msg.channel_id) {
         if lobby.remove(&msg.author.id) {
             ctx.send_message(msg.channel_id, |m| {
@@ -131,11 +156,12 @@ fn main() {
         .insert(794652629325447228.into(), HashSet::default());
     let client = ClientBuilder::new()
         .with_bot_token(&token)
-        .on_ready(|ctx, rdy| {
-            ready(ctx, rdy, lobbies.clone());
-            Ok(())
-        })
-        .on_message_create(|ctx, msg| message_create(ctx, msg, &mut lobbies.lock().unwrap()))
+        .intents(Intents::GUILD_MESSAGES | Intents::DIRECT_MESSAGES)
+        .on_ready(|ctx, rdy| ready(ctx, rdy, lobbies.clone()))
+        .on_message_create(|ctx, msg| message_create(ctx, msg, lobbies.clone()))
+        .error_handler(|_, err| println!("{}", err))
         .build();
-    client.start().unwrap();
+    if let Err(err) = client.run() {
+        println!("Error: {}", err);
+    }
 }

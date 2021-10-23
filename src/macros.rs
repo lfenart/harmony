@@ -2,7 +2,7 @@ macro_rules! api {
     ($e:expr $(,)?) => {
         format!(
             "{}/v{}{}",
-            crate::consts::DISCORD_API,
+            crate::consts::API_URL,
             crate::consts::API_VERSION,
             $e,
         )
@@ -10,7 +10,7 @@ macro_rules! api {
     ($f:expr, $($e:expr),+ $(,)?) => {
         format!(
             "{}/v{}{}",
-            crate::consts::DISCORD_API,
+            crate::consts::API_URL,
             crate::consts::API_VERSION,
             format!($f, $($e,)*),
         )

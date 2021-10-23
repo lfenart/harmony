@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
+use serde_repr::Deserialize_repr;
 
 use super::id::{ChannelId, GuildId, MessageId, RoleId, WebhookId};
 use super::{Member, User};
@@ -29,8 +30,7 @@ pub struct Message {
     pub pinned: bool,
     pub webhook_id: Option<WebhookId>,
     #[serde(rename = "type")]
-    // pub kind: MessageType,
-    pub kind: i64,
+    pub kind: MessageKind,
     // pub activity: Option<MessageActivity>,
     // pub application: Option<MessageApplication>,
     // pub message_reference: Option<MessageReference>,
@@ -42,4 +42,32 @@ pub struct Message {
     // pub components: Vec<ActionRow>,
     // #[serde(default)]
     // pub sticker_items: Vec<StickerItem>,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize_repr)]
+#[repr(u8)]
+pub enum MessageKind {
+    Default = 0,
+    RecipientAdd = 1,
+    RecipientRemove = 2,
+    Call = 3,
+    ChannelNameChange = 4,
+    ChannelIconChange = 5,
+    ChannelPinnedMessage = 6,
+    GuildMemberJoin = 7,
+    UserPremiumGuildSubscription = 8,
+    UserPremiumGuildSubscriptionTier1 = 9,
+    UserPremiumGuildSubscriptionTier2 = 10,
+    UserPremiumGuildSubscriptionTier3 = 11,
+    ChannelFollowAdd = 12,
+    GuildDiscoveryDisqualified = 14,
+    GuildDiscoveryRequalified = 15,
+    GuildDiscoveryGracePeriodInitialWarning = 16,
+    GuildDiscoveryGracePeriodFinalWarning = 17,
+    ThreadCreated = 18,
+    Reply = 19,
+    ChatInputCommand = 20,
+    ThreadStarterMessage = 21,
+    GuildInviteReminder = 22,
+    ContextMenuCommand = 23,
 }

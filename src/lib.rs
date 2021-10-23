@@ -1,13 +1,12 @@
 #[macro_use]
-pub mod macros;
+mod macros;
 
 pub mod client;
 pub mod consts;
-pub mod error;
+mod error;
 pub mod gateway;
 pub mod http;
 pub mod model;
-pub mod utils;
 
 pub use error::Error;
 
