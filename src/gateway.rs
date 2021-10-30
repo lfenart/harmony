@@ -11,7 +11,7 @@ pub use intents::Intents;
 #[derive(Debug, Deserialize_repr)]
 #[repr(u8)]
 #[non_exhaustive]
-enum OpCode {
+pub enum OpCode {
     Dispatch = 0,
     Hello = 10,
     HeartbeatAck = 11,

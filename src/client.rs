@@ -22,7 +22,7 @@ pub use context::Context;
 use event_handler::EventHandler;
 use gateway_handler::GatewayHandler;
 
-pub(crate) type Callback<'a, T, U> = Box<dyn Fn(&Context, &T) -> U + 'a>;
+pub(crate) type Callback<'a, T, U> = Box<dyn Fn(Context, T) -> U + 'a>;
 
 pub struct Client<'a, E> {
     token: String,

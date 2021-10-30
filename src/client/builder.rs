@@ -51,7 +51,7 @@ impl<'a, E> ClientBuilder<'a, E> {
 
     pub fn on_ready<F>(mut self, f: F) -> Self
     where
-        F: Fn(&Context, &Ready) -> Result<(), E> + 'a,
+        F: Fn(Context, Ready) -> Result<(), E> + 'a,
     {
         self.on_ready = Some(Box::new(f));
         self
@@ -59,7 +59,7 @@ impl<'a, E> ClientBuilder<'a, E> {
 
     pub fn on_message_create<F>(mut self, f: F) -> Self
     where
-        F: Fn(&Context, &Message) -> Result<(), E> + 'a,
+        F: Fn(Context, Message) -> Result<(), E> + 'a,
     {
         self.on_message_create = Some(Box::new(f));
         self
@@ -67,7 +67,7 @@ impl<'a, E> ClientBuilder<'a, E> {
 
     pub fn error_handler<F>(mut self, f: F) -> Self
     where
-        F: Fn(&Context, &E) + 'a,
+        F: Fn(Context, E) + 'a,
     {
         self.error_handler = Some(Box::new(f));
         self

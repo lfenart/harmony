@@ -11,17 +11,16 @@ pub struct CreateMessage {
 }
 
 impl CreateMessage {
-    pub fn content<T: ToString>(&mut self, content: T) -> &mut Self {
+    pub fn content<T: ToString>(mut self, content: T) -> Self {
         self.content = Some(content.to_string());
         self
     }
 
-    pub fn embed<F>(&mut self, f: F) -> &mut Self
+    pub fn embed<F>(mut self, f: F) -> Self
     where
-        F: FnOnce(&mut CreateEmbed) -> &mut CreateEmbed,
+        F: FnOnce(CreateEmbed) -> CreateEmbed,
     {
-        let mut embed = CreateEmbed::default();
-        f(&mut embed);
+        let embed = f(CreateEmbed::default());
         self.embeds.push(embed);
         self
     }

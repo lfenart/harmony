@@ -11,17 +11,17 @@ pub struct CreateEmbed {
 }
 
 impl CreateEmbed {
-    pub fn title<T: ToString>(&mut self, title: T) -> &mut Self {
+    pub fn title<T: ToString>(mut self, title: T) -> Self {
         self.title = Some(title.to_string());
         self
     }
 
-    pub fn description<T: ToString>(&mut self, description: T) -> &mut Self {
+    pub fn description<T: ToString>(mut self, description: T) -> Self {
         self.description = Some(description.to_string());
         self
     }
 
-    pub fn timestamp(&mut self, timestamp: DateTime<Utc>) -> &mut Self {
+    pub fn timestamp(mut self, timestamp: DateTime<Utc>) -> Self {
         self.timestamp = Some(timestamp);
         self
     }
