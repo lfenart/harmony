@@ -22,17 +22,16 @@ pub use context::Context;
 use event_handler::EventHandler;
 use gateway_handler::GatewayHandler;
 
-pub(crate) type Callback<'a, T, U> = Box<dyn Fn(Context, T) -> U + 'a>;
+pub(crate) type Callback<'a, T> = Box<dyn Fn(Context, T) + 'a>;
 
-pub struct Client<'a, E> {
+pub struct Client<'a> {
     token: String,
     intents: Intents,
-    on_ready: Callback<'a, Ready, std::result::Result<(), E>>,
-    on_message_create: Callback<'a, Message, std::result::Result<(), E>>,
-    error_handler: Callback<'a, E, ()>,
+    on_ready: Callback<'a, Ready>,
+    on_message_create: Callback<'a, Message>,
 }
 
-impl<'a, E> Client<'a, E> {
+impl<'a> Client<'a> {
     pub fn run(self) -> Result<()> {
         let (gateway_handler, event_handler) = self.connect()?;
         let _ = thread::spawn(move || gateway_handler.run());
@@ -40,7 +39,7 @@ impl<'a, E> Client<'a, E> {
         Ok(())
     }
 
-    fn connect(self) -> Result<(GatewayHandler, EventHandler<'a, E>)> {
+    fn connect(self) -> Result<(GatewayHandler, EventHandler<'a>)> {
         let gateway = {
             let url = ureq::get(&api!("/gateway"))
                 .call()?
@@ -73,13 +72,8 @@ impl<'a, E> Client<'a, E> {
         let (event_sender, event_receiver) = mpsc::channel::<DispatchEvent>();
         let gateway_handler =
             GatewayHandler::new(token.clone(), event_sender, socket, poll, self.intents);
-        let event_handler = EventHandler::new(
-            token,
-            event_receiver,
-            self.on_ready,
-            self.on_message_create,
-            self.error_handler,
-        );
+        let event_handler =
+            EventHandler::new(token, event_receiver, self.on_ready, self.on_message_create);
         Ok((gateway_handler, event_handler))
     }
 }

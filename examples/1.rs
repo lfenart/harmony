@@ -262,11 +262,6 @@ fn leave(ctx: &Context, msg: &Message, lobbies: &mut Lobbies) -> Result<(), Erro
     Ok(())
 }
 
-fn error_handler(ctx: Context, err: Error) {
-    ctx.send_message(err.channel_id, |m| m.content(err.to_string()))
-        .unwrap();
-}
-
 fn main() {
     let token = env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN");
     let lobbies = Arc::new(Mutex::new(Lobbies::new()));
@@ -276,9 +271,12 @@ fn main() {
     let client = ClientBuilder::new()
         .with_bot_token(&token)
         .intents(Intents::GUILD_MESSAGES | Intents::DIRECT_MESSAGES)
-        .on_ready(|ctx, rdy| ready(ctx, rdy, lobbies.clone()))
-        .on_message_create(|ctx, msg| message_create(ctx, msg, lobbies.clone()))
-        .error_handler(error_handler)
+        .on_ready(|ctx, rdy| {
+            ready(ctx, rdy, lobbies.clone()).unwrap();
+        })
+        .on_message_create(|ctx, msg| {
+            message_create(ctx, msg, lobbies.clone()).unwrap();
+        })
         .build();
     if let Err(err) = client.run() {
         println!("Error: {}", err);

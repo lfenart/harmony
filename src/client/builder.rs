@@ -3,34 +3,26 @@ use crate::gateway::{Intents, Ready};
 use crate::model::Message;
 
 #[derive(Default)]
-pub struct ClientBuilder<'a, E = Box<dyn std::error::Error>> {
+pub struct ClientBuilder<'a> {
     token: Option<String>,
     intents: Intents,
-    on_ready: Option<Callback<'a, Ready, Result<(), E>>>,
-    on_message_create: Option<Callback<'a, Message, Result<(), E>>>,
-    error_handler: Option<Callback<'a, E, ()>>,
+    on_ready: Option<Callback<'a, Ready>>,
+    on_message_create: Option<Callback<'a, Message>>,
 }
 
-impl<'a, E> ClientBuilder<'a, E> {
+impl<'a> ClientBuilder<'a> {
     pub fn new() -> Self {
-        Self {
-            token: None,
-            intents: Intents::default(),
-            on_ready: None,
-            on_message_create: None,
-            error_handler: None,
-        }
+        Self::default()
     }
 
-    pub fn build(self) -> Client<'a, E> {
+    pub fn build(self) -> Client<'a> {
         Client {
             token: self.token.unwrap(),
             intents: self.intents,
-            on_ready: self.on_ready.unwrap_or_else(|| Box::new(|_, _| Ok(()))),
+            on_ready: self.on_ready.unwrap_or_else(|| Box::new(|_, _| ())),
             on_message_create: self
                 .on_message_create
-                .unwrap_or_else(|| Box::new(|_, _| Ok(()))),
-            error_handler: self.error_handler.unwrap_or_else(|| Box::new(|_, _| ())),
+                .unwrap_or_else(|| Box::new(|_, _| ())),
         }
     }
 
@@ -51,7 +43,7 @@ impl<'a, E> ClientBuilder<'a, E> {
 
     pub fn on_ready<F>(mut self, f: F) -> Self
     where
-        F: Fn(Context, Ready) -> Result<(), E> + 'a,
+        F: Fn(Context, Ready) + 'a,
     {
         self.on_ready = Some(Box::new(f));
         self
@@ -59,17 +51,9 @@ impl<'a, E> ClientBuilder<'a, E> {
 
     pub fn on_message_create<F>(mut self, f: F) -> Self
     where
-        F: Fn(Context, Message) -> Result<(), E> + 'a,
+        F: Fn(Context, Message) + 'a,
     {
         self.on_message_create = Some(Box::new(f));
-        self
-    }
-
-    pub fn error_handler<F>(mut self, f: F) -> Self
-    where
-        F: Fn(Context, E) + 'a,
-    {
-        self.error_handler = Some(Box::new(f));
         self
     }
 }

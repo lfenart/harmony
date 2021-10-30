@@ -6,28 +6,25 @@ use std::sync::Arc;
 
 use crate::Result;
 
-pub struct EventHandler<'a, E> {
+pub struct EventHandler<'a> {
     token: Arc<str>,
     event_receiver: Receiver<DispatchEvent>,
-    on_ready: Callback<'a, Ready, std::result::Result<(), E>>,
-    on_message_create: Callback<'a, Message, std::result::Result<(), E>>,
-    error_handler: Callback<'a, E, ()>,
+    on_ready: Callback<'a, Ready>,
+    on_message_create: Callback<'a, Message>,
 }
 
-impl<'a, E> EventHandler<'a, E> {
+impl<'a> EventHandler<'a> {
     pub fn new(
         token: Arc<str>,
         event_receiver: Receiver<DispatchEvent>,
-        on_ready: Callback<'a, Ready, std::result::Result<(), E>>,
-        on_message_create: Callback<'a, Message, std::result::Result<(), E>>,
-        error_handler: Callback<'a, E, ()>,
+        on_ready: Callback<'a, Ready>,
+        on_message_create: Callback<'a, Message>,
     ) -> Self {
         Self {
             token,
             event_receiver,
             on_ready,
             on_message_create,
-            error_handler,
         }
     }
 
@@ -35,16 +32,13 @@ impl<'a, E> EventHandler<'a, E> {
         let context = Context::new(self.token.clone());
         loop {
             let event = self.event_receiver.recv()?;
-            let result = match event.kind {
+            match event.kind {
                 DispatchEventKind::Ready(ready) => (self.on_ready)(context.clone(), ready),
                 DispatchEventKind::MessageCreate(message) => {
                     (self.on_message_create)(context.clone(), *message)
                 }
                 DispatchEventKind::Unknown(_) => continue,
             };
-            if let Err(err) = result {
-                (self.error_handler)(context.clone(), err);
-            }
         }
     }
 }
