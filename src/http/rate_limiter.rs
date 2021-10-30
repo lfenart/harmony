@@ -82,7 +82,6 @@ impl RateLimiter {
                 remaining,
                 reset,
             };
-            println!("{:?}", rate_limit);
             response
         } else {
             loop {
@@ -146,7 +145,6 @@ impl RateLimiter {
                 remaining,
                 reset,
             };
-            println!("{:?}", rate_limit);
             response
         } else {
             loop {
@@ -210,7 +208,6 @@ impl RateLimiter {
                 remaining,
                 reset,
             };
-            println!("{:?}", rate_limit);
             response
         } else {
             loop {
