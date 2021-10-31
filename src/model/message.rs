@@ -3,7 +3,7 @@ use serde::Deserialize;
 use serde_repr::Deserialize_repr;
 
 use super::id::{ChannelId, GuildId, MessageId, RoleId, WebhookId};
-use super::{Member, User};
+use super::{PartialMember, User};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Message {
@@ -11,7 +11,7 @@ pub struct Message {
     pub channel_id: ChannelId,
     pub guild_id: Option<GuildId>,
     pub author: User,
-    pub member: Option<Member>,
+    pub member: Option<PartialMember>,
     pub content: String,
     pub timestamp: DateTime<Utc>,
     pub edited_timestamp: Option<DateTime<Utc>>,

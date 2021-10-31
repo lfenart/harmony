@@ -12,9 +12,9 @@ use std::sync::Arc;
 use multipart::client::lazy::Multipart;
 use ureq::Agent;
 
-use crate::model::id::{ChannelId, MessageId, WebhookId};
-use crate::model::Message;
-use crate::Result;
+use crate::model::id::{ChannelId, GuildId, MessageId, UserId, WebhookId};
+use crate::model::{Member, Message};
+use crate::{Error, Result};
 pub use create_embed::CreateEmbed;
 pub use create_message::CreateMessage;
 pub use edit_message::EditMessage;
@@ -175,5 +175,37 @@ impl Http {
         self.rate_limiter
             .call(Some(Route::Webhook(webhook_id)), request)?;
         Ok(())
+    }
+
+    pub fn member(&self, guild_id: GuildId, user_id: UserId) -> Result<Option<Member>> {
+        let request = self
+            .agent
+            .get(&api!("/guilds/{}/members/{}", guild_id.0, user_id.0))
+            .set("AUTHORIZATION", &self.token);
+        let member = match self
+            .rate_limiter
+            .call(Some(Route::Guild(guild_id)), request)
+        {
+            Ok(response) => Some(response.into_json::<Member>()?),
+            Err(Error::Ureq(ureq::Error::Status(404, _))) => None,
+            Err(err) => return Err(err),
+        };
+        Ok(member)
+    }
+
+    pub fn search_guild_members(&self, guild_id: GuildId, query: &str) -> Result<Vec<Member>> {
+        let request = self
+            .agent
+            .get(&api!(
+                "/guilds/{}/members/search?query={}&limit=1000",
+                guild_id.0,
+                query
+            ))
+            .set("AUTHORIZATION", &self.token);
+        let response = self
+            .rate_limiter
+            .call(Some(Route::Guild(guild_id)), request)?;
+        let members = response.into_json::<Vec<Member>>()?;
+        Ok(members)
     }
 }
