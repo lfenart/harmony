@@ -13,7 +13,7 @@ use multipart::client::lazy::Multipart;
 use ureq::Agent;
 
 use crate::model::id::{ChannelId, GuildId, MessageId, UserId, WebhookId};
-use crate::model::{Member, Message};
+use crate::model::{Channel, Member, Message};
 use crate::{Error, Result};
 pub use create_embed::CreateEmbed;
 pub use create_message::CreateMessage;
@@ -51,7 +51,7 @@ impl Http {
         let response =
             self.rate_limiter
                 .send_json(Some(Route::Channel(channel_id)), request, json)?;
-        let message = response.into_json::<Message>()?;
+        let message = response.into_json()?;
         Ok(message)
     }
 
@@ -85,7 +85,7 @@ impl Http {
         let response = self
             .rate_limiter
             .send(Some(Route::Channel(channel_id)), request, mdata)?;
-        let message = response.into_json::<Message>()?;
+        let message = response.into_json()?;
         Ok(message)
     }
 
@@ -107,7 +107,7 @@ impl Http {
             request,
             json,
         )?;
-        let message = response.into_json::<Message>()?;
+        let message = response.into_json()?;
         Ok(message)
     }
 
@@ -150,7 +150,7 @@ impl Http {
             self.rate_limiter
                 .send_json(Some(Route::Webhook(webhook_id)), request, json)?;
         Ok(if wait {
-            let message = response.into_json::<Message>()?;
+            let message = response.into_json()?;
             Some(message)
         } else {
             None
@@ -186,7 +186,7 @@ impl Http {
             .rate_limiter
             .call(Some(Route::Guild(guild_id)), request)
         {
-            Ok(response) => Some(response.into_json::<Member>()?),
+            Ok(response) => Some(response.into_json()?),
             Err(Error::Ureq(ureq::Error::Status(404, _))) => None,
             Err(err) => return Err(err),
         };
@@ -205,7 +205,32 @@ impl Http {
         let response = self
             .rate_limiter
             .call(Some(Route::Guild(guild_id)), request)?;
-        let members = response.into_json::<Vec<Member>>()?;
+        let members = response.into_json()?;
         Ok(members)
+    }
+
+    pub fn channel(&self, channel_id: ChannelId) -> Result<Option<Channel>> {
+        let request = self
+            .agent
+            .get(&api!("/channels/{}", channel_id.0))
+            .set("AUTHORIZATION", &self.token);
+        let channel = match self.rate_limiter.call(None, request) {
+            Ok(reponse) => Some(reponse.into_json()?),
+            Err(Error::Ureq(ureq::Error::Status(404, _))) => None,
+            Err(err) => return Err(err),
+        };
+        Ok(channel)
+    }
+
+    pub fn guild_channels(&self, guild_id: GuildId) -> Result<Vec<Channel>> {
+        let request = self
+            .agent
+            .get(&api!("/guilds/{}/channels", guild_id.0))
+            .set("AUTHORIZATION", &self.token);
+        let response = self
+            .rate_limiter
+            .call(Some(Route::Guild(guild_id)), request)?;
+        let channels = response.into_json()?;
+        Ok(channels)
     }
 }

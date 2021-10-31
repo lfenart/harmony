@@ -26,13 +26,12 @@ impl Member {
     pub fn parse(ctx: &Context, guild_id: GuildId, text: &str) -> Result<Option<Self>> {
         if let Some(user_id) = text.parse::<u64>().ok().or_else(|| {
             let len = text.len();
-            if len < 4 {
-                return None;
-            }
-            if text.starts_with("<@!") {
-                return text[3..len - 1].parse().ok();
-            } else if text.starts_with("<@") {
-                return text[2..len - 1].parse().ok();
+            if text.ends_with('>') {
+                if text.starts_with("<@!") {
+                    return text[3..len - 1].parse().ok();
+                } else if text.starts_with("<@") {
+                    return text[2..len - 1].parse().ok();
+                }
             }
             None
         }) {
