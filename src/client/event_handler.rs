@@ -28,7 +28,7 @@ impl<'a> EventHandler<'a> {
         }
     }
 
-    pub fn run(self) -> Result {
+    pub fn run(mut self) -> Result {
         let context = Context::new(self.token.clone());
         loop {
             let event = self.event_receiver.recv()?;

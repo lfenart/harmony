@@ -43,7 +43,7 @@ impl<'a> ClientBuilder<'a> {
 
     pub fn on_ready<F>(mut self, f: F) -> Self
     where
-        F: Fn(Context, Ready) + 'a,
+        F: FnMut(Context, Ready) + 'a,
     {
         self.on_ready = Some(Box::new(f));
         self
@@ -51,7 +51,7 @@ impl<'a> ClientBuilder<'a> {
 
     pub fn on_message_create<F>(mut self, f: F) -> Self
     where
-        F: Fn(Context, Message) + 'a,
+        F: FnMut(Context, Message) + 'a,
     {
         self.on_message_create = Some(Box::new(f));
         self
