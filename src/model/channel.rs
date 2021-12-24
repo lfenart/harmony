@@ -9,36 +9,36 @@ use crate::Result;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Channel {
-    id: ChannelId,
+    pub id: ChannelId,
     #[serde(rename = "type")]
-    kind: ChannelKind,
-    guild_id: Option<GuildId>,
-    position: u64,
+    pub kind: ChannelKind,
+    pub guild_id: Option<GuildId>,
+    pub position: u64,
     //#[serde(default)]
     // permission_overwrites: Vec<Overwrite>,
-    name: Option<String>,
-    topic: Option<String>,
+    pub name: Option<String>,
+    pub topic: Option<String>,
     #[serde(default)]
-    nsfw: bool,
-    last_message_id: Option<MessageId>,
-    bitrate: Option<u64>,
-    user_limit: Option<u64>,
-    rate_limit_per_user: Option<u64>,
+    pub nsfw: bool,
+    pub last_message_id: Option<MessageId>,
+    pub bitrate: Option<u64>,
+    pub user_limit: Option<u64>,
+    pub rate_limit_per_user: Option<u64>,
     #[serde(default)]
-    recipients: Vec<User>,
-    icon: Option<String>,
-    owner_id: Option<UserId>,
+    pub recipients: Vec<User>,
+    pub icon: Option<String>,
+    pub owner_id: Option<UserId>,
     // application_id: Option<ApplicationId>,
     // parent_id: Option<>,
-    last_pin_timestamp: Option<DateTime<Utc>>,
-    rtc_region: Option<String>,
-    video_quality_mode: Option<u64>,
-    message_count: Option<u8>,
-    member_count: Option<u8>,
+    pub last_pin_timestamp: Option<DateTime<Utc>>,
+    pub rtc_region: Option<String>,
+    pub video_quality_mode: Option<u64>,
+    pub message_count: Option<u8>,
+    pub member_count: Option<u8>,
     // thread_metadata: Option<>,
     // member: Option<>,
     // default_auto_archive_duration: ,
-    permissions: Option<String>,
+    pub permissions: Option<String>,
 }
 
 impl Channel {
@@ -70,7 +70,7 @@ impl Channel {
 
 #[derive(Debug, Clone, Copy, Deserialize_repr)]
 #[repr(u8)]
-enum ChannelKind {
+pub enum ChannelKind {
     GuildText = 0,
     Dm = 1,
     GuildVoice = 2,
