@@ -61,22 +61,16 @@ impl RateLimiter {
             };
             let limit = response
                 .header("x-ratelimit-limit")
-                .unwrap()
-                .parse::<u64>()
-                .unwrap();
+                .map(|x| x.parse::<u64>().unwrap())
+                .unwrap_or(rate_limit.limit);
             let remaining = response
                 .header("x-ratelimit-remaining")
-                .unwrap()
-                .parse::<u64>()
-                .unwrap();
-            let reset = std::time::UNIX_EPOCH
-                + Duration::from_secs_f64(
-                    response
-                        .header("x-ratelimit-reset")
-                        .unwrap()
-                        .parse::<f64>()
-                        .unwrap(),
-                );
+                .map(|x| x.parse::<u64>().unwrap())
+                .unwrap_or(rate_limit.remaining);
+            let reset = response
+                .header("x-ratelimit-reset")
+                .map(|x| std::time::UNIX_EPOCH + Duration::from_secs_f64(x.parse().unwrap()))
+                .unwrap_or(rate_limit.reset);
             *rate_limit = RateLimit {
                 limit,
                 remaining,
@@ -124,22 +118,16 @@ impl RateLimiter {
             };
             let limit = response
                 .header("x-ratelimit-limit")
-                .unwrap()
-                .parse::<u64>()
-                .unwrap();
+                .map(|x| x.parse::<u64>().unwrap())
+                .unwrap_or(rate_limit.limit);
             let remaining = response
                 .header("x-ratelimit-remaining")
-                .unwrap()
-                .parse::<u64>()
-                .unwrap();
-            let reset = std::time::UNIX_EPOCH
-                + Duration::from_secs_f64(
-                    response
-                        .header("x-ratelimit-reset")
-                        .unwrap()
-                        .parse::<f64>()
-                        .unwrap(),
-                );
+                .map(|x| x.parse::<u64>().unwrap())
+                .unwrap_or(rate_limit.remaining);
+            let reset = response
+                .header("x-ratelimit-reset")
+                .map(|x| std::time::UNIX_EPOCH + Duration::from_secs_f64(x.parse().unwrap()))
+                .unwrap_or(rate_limit.reset);
             *rate_limit = RateLimit {
                 limit,
                 remaining,
@@ -187,22 +175,16 @@ impl RateLimiter {
             };
             let limit = response
                 .header("x-ratelimit-limit")
-                .unwrap()
-                .parse::<u64>()
-                .unwrap();
+                .map(|x| x.parse::<u64>().unwrap())
+                .unwrap_or(rate_limit.limit);
             let remaining = response
                 .header("x-ratelimit-remaining")
-                .unwrap()
-                .parse::<u64>()
-                .unwrap();
-            let reset = std::time::UNIX_EPOCH
-                + Duration::from_secs_f64(
-                    response
-                        .header("x-ratelimit-reset")
-                        .unwrap()
-                        .parse::<f64>()
-                        .unwrap(),
-                );
+                .map(|x| x.parse::<u64>().unwrap())
+                .unwrap_or(rate_limit.remaining);
+            let reset = response
+                .header("x-ratelimit-reset")
+                .map(|x| std::time::UNIX_EPOCH + Duration::from_secs_f64(x.parse().unwrap()))
+                .unwrap_or(rate_limit.reset);
             *rate_limit = RateLimit {
                 limit,
                 remaining,

@@ -118,7 +118,20 @@ fn f(msg: &str) -> Option<(&str, Vec<&str>)> {
 
 fn ready(ctx: Context, _: Ready, lobbies: Arc<Mutex<Lobbies>>) -> Result<(), Error> {
     println!("Bot started");
+    let role = ctx
+        .create_guild_role(603531141147787285.into(), |r| {
+            r.mentionable(true).name("toto")
+        })
+        .unwrap();
+    ctx.delete_guild_role(603531141147787285.into(), role.id)
+        .unwrap();
     ctx.add_guild_member_role(
+        603531141147787285.into(),
+        793913952014696458.into(),
+        808743422353604618.into(),
+    )
+    .unwrap();
+    ctx.remove_guild_member_role(
         603531141147787285.into(),
         793913952014696458.into(),
         808743422353604618.into(),

@@ -1,4 +1,5 @@
 mod create_embed;
+mod create_guild_role;
 mod create_message;
 mod edit_message;
 mod execute_webhook;
@@ -13,9 +14,10 @@ use multipart::client::lazy::Multipart;
 use ureq::Agent;
 
 use crate::model::id::{ChannelId, GuildId, MessageId, RoleId, UserId, WebhookId};
-use crate::model::{Channel, Member, Message};
+use crate::model::{Channel, Member, Message, Role};
 use crate::{Error, Result};
 pub use create_embed::CreateEmbed;
+pub use create_guild_role::CreateGuildRole;
 pub use create_message::CreateMessage;
 pub use edit_message::EditMessage;
 pub use execute_webhook::ExecuteWebhook;
@@ -250,6 +252,53 @@ impl Http {
             ))
             .set("AUTHORIZATION", &self.token)
             .set("Content-Length", "0");
+        self.rate_limiter
+            .call(Some(Route::Guild(guild_id)), request)?;
+        Ok(())
+    }
+
+    pub fn remove_guild_member_role(
+        &self,
+        guild_id: GuildId,
+        user_id: UserId,
+        role_id: RoleId,
+    ) -> Result {
+        let request = self
+            .agent
+            .delete(&api!(
+                "/guilds/{}/members/{}/roles/{}",
+                guild_id.0,
+                user_id.0,
+                role_id.0
+            ))
+            .set("AUTHORIZATION", &self.token);
+        self.rate_limiter
+            .call(Some(Route::Guild(guild_id)), request)?;
+        Ok(())
+    }
+
+    pub fn create_guild_role<F>(&self, guild_id: GuildId, f: F) -> Result<Role>
+    where
+        F: FnOnce(CreateGuildRole) -> CreateGuildRole,
+    {
+        let role = f(CreateGuildRole::default());
+        let json = serde_json::to_value(role).unwrap();
+        let request = self
+            .agent
+            .post(&api!("/guilds/{}/roles", guild_id.0))
+            .set("AUTHORIZATION", &self.token);
+        let response = self
+            .rate_limiter
+            .send_json(Some(Route::Guild(guild_id)), request, json)?;
+        let role = response.into_json()?;
+        Ok(role)
+    }
+
+    pub fn delete_guild_role(&self, guild_id: GuildId, role_id: RoleId) -> Result {
+        let request = self
+            .agent
+            .delete(&api!("/guilds/{}/roles/{}", guild_id.0, role_id.0))
+            .set("AUTHORIZATION", &self.token);
         self.rate_limiter
             .call(Some(Route::Guild(guild_id)), request)?;
         Ok(())
