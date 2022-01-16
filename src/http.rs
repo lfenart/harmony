@@ -12,7 +12,7 @@ use std::sync::Arc;
 use multipart::client::lazy::Multipart;
 use ureq::Agent;
 
-use crate::model::id::{ChannelId, GuildId, MessageId, UserId, WebhookId};
+use crate::model::id::{ChannelId, GuildId, MessageId, RoleId, UserId, WebhookId};
 use crate::model::{Channel, Member, Message};
 use crate::{Error, Result};
 pub use create_embed::CreateEmbed;
@@ -232,5 +232,26 @@ impl Http {
             .call(Some(Route::Guild(guild_id)), request)?;
         let channels = response.into_json()?;
         Ok(channels)
+    }
+
+    pub fn add_guild_member_role(
+        &self,
+        guild_id: GuildId,
+        user_id: UserId,
+        role_id: RoleId,
+    ) -> Result {
+        let request = self
+            .agent
+            .put(&api!(
+                "/guilds/{}/members/{}/roles/{}",
+                guild_id.0,
+                user_id.0,
+                role_id.0
+            ))
+            .set("AUTHORIZATION", &self.token)
+            .set("Content-Length", "0");
+        self.rate_limiter
+            .call(Some(Route::Guild(guild_id)), request)?;
+        Ok(())
     }
 }

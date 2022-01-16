@@ -118,6 +118,12 @@ fn f(msg: &str) -> Option<(&str, Vec<&str>)> {
 
 fn ready(ctx: Context, _: Ready, lobbies: Arc<Mutex<Lobbies>>) -> Result<(), Error> {
     println!("Bot started");
+    ctx.add_guild_member_role(
+        603531141147787285.into(),
+        793913952014696458.into(),
+        808743422353604618.into(),
+    )
+    .unwrap();
     thread::spawn(move || {
         let duration = chrono::Duration::minutes(1);
         loop {
