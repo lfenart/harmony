@@ -303,4 +303,16 @@ impl Http {
             .call(Some(Route::Guild(guild_id)), request)?;
         Ok(())
     }
+
+    pub fn get_guild_roles(&self, guild_id: GuildId) -> Result<Vec<Role>> {
+        let request = self
+            .agent
+            .get(&api!("/guilds/{}/roles", guild_id.0))
+            .set("AUTHORIZATION", &self.token);
+        let response = self
+            .rate_limiter
+            .call(Some(Route::Guild(guild_id)), request)?;
+        let roles = response.into_json()?;
+        Ok(roles)
+    }
 }

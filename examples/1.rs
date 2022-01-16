@@ -123,6 +123,8 @@ fn ready(ctx: Context, _: Ready, lobbies: Arc<Mutex<Lobbies>>) -> Result<(), Err
             r.mentionable(true).name("toto")
         })
         .unwrap();
+    let roles = ctx.get_guild_roles(603531141147787285.into()).unwrap();
+    println!("{:?}", roles);
     ctx.delete_guild_role(603531141147787285.into(), role.id)
         .unwrap();
     ctx.add_guild_member_role(
