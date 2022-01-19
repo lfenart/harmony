@@ -92,7 +92,12 @@ impl Http {
         Ok(message)
     }
 
-    pub fn edit_message<F>(&self, msg: &Message, f: F) -> Result<Message>
+    pub fn edit_message<F>(
+        &self,
+        channel_id: ChannelId,
+        message_id: MessageId,
+        f: F,
+    ) -> Result<Message>
     where
         F: FnOnce(EditMessage) -> EditMessage,
     {
@@ -102,11 +107,11 @@ impl Http {
             .agent
             .request(
                 "PATCH",
-                &api!("/channels/{}/messages/{}", msg.channel_id.0, msg.id.0),
+                &api!("/channels/{}/messages/{}", channel_id.0, message_id.0),
             )
             .set("AUTHORIZATION", &self.token);
         let response = self.rate_limiter.send_json(
-            Some(Route::ChannelMessage(msg.channel_id, msg.id)),
+            Some(Route::ChannelMessage(channel_id, message_id)),
             request,
             json,
         )?;
@@ -320,9 +325,7 @@ impl Http {
             .post(&api!("/users/@me/channels"))
             .set("AUTHORIZATION", &self.token);
         let json = json!({ "recipient_id": user_id });
-        let response = self
-            .rate_limiter
-            .send_json(Some(Route::UserMe), request, json)?;
+        let response = self.rate_limiter.send_json(None, request, json)?;
         let channel = response.into_json()?;
         Ok(channel)
     }

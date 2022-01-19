@@ -4,7 +4,7 @@ use std::thread;
 use std::time::{Duration, SystemTime};
 
 use multipart::client::lazy::PreparedFields;
-use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
+use parking_lot::Mutex;
 use serde::Deserialize;
 use ureq::{Request, Response};
 
@@ -13,7 +13,7 @@ use crate::Result;
 
 #[derive(Debug, Default, Clone)]
 pub struct RateLimiter {
-    routes: Arc<RwLock<HashMap<Route, Mutex<RateLimit>>>>,
+    routes: Arc<Mutex<HashMap<Route, Arc<Mutex<RateLimit>>>>>,
 }
 
 impl RateLimiter {
@@ -21,29 +21,24 @@ impl RateLimiter {
         Self::default()
     }
 
-    fn lock(&self, route: Route) -> RwLockReadGuard<HashMap<Route, Mutex<RateLimit>>> {
-        let guard = self.routes.upgradable_read();
-        let guard = if !guard.contains_key(&route) {
-            let mut write_guard = RwLockUpgradableReadGuard::upgrade(guard);
-            write_guard.insert(
-                route,
-                Mutex::new(RateLimit {
-                    limit: 1,
-                    remaining: 1,
-                    reset: SystemTime::now(),
-                }),
-            );
-            RwLockWriteGuard::downgrade(write_guard)
-        } else {
-            RwLockUpgradableReadGuard::downgrade(guard)
-        };
+    fn lock(&self, route: Route) -> Arc<Mutex<RateLimit>> {
+        let mut guard = self.routes.lock();
         guard
+            .entry(route)
+            .or_insert_with(|| {
+                Arc::new(Mutex::new(RateLimit {
+                    limit: 0,
+                    remaining: 1,
+                    reset: SystemTime::UNIX_EPOCH,
+                }))
+            })
+            .clone()
     }
 
     pub fn call(&self, route: Option<Route>, request: Request) -> Result<Response> {
         let response = if let Some(route) = route {
-            let guard = self.lock(route);
-            let mut rate_limit = guard[&route].lock();
+            let mutex = self.lock(route);
+            let mut rate_limit = mutex.lock();
             if rate_limit.remaining == 0 {
                 if let Ok(delay) = rate_limit.reset.duration_since(SystemTime::now()) {
                     thread::sleep(delay);
@@ -100,8 +95,8 @@ impl RateLimiter {
         mut fields: PreparedFields,
     ) -> Result<Response> {
         let response = if let Some(route) = route {
-            let guard = self.lock(route);
-            let mut rate_limit = guard[&route].lock();
+            let mutex = self.lock(route);
+            let mut rate_limit = mutex.lock();
             if rate_limit.remaining == 0 {
                 if let Ok(delay) = rate_limit.reset.duration_since(SystemTime::now()) {
                     thread::sleep(delay);
@@ -158,8 +153,8 @@ impl RateLimiter {
         json: serde_json::Value,
     ) -> Result<Response> {
         let response = if let Some(route) = route {
-            let guard = self.lock(route);
-            let mut rate_limit = guard[&route].lock();
+            let mutex = self.lock(route);
+            let mut rate_limit = mutex.lock();
             if rate_limit.remaining == 0 {
                 if let Ok(delay) = rate_limit.reset.duration_since(SystemTime::now()) {
                     thread::sleep(delay);

@@ -8,6 +8,5 @@ pub enum Route {
     ChannelMessage(ChannelId, MessageId),
     Guild(GuildId),
     GuildMember(GuildId, UserId),
-    UserMe,
     Webhook(WebhookId),
 }
