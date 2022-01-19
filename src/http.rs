@@ -11,6 +11,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use multipart::client::lazy::Multipart;
+use serde_json::json;
 use ureq::Agent;
 
 use crate::model::id::{ChannelId, GuildId, MessageId, RoleId, UserId, WebhookId};
@@ -253,7 +254,7 @@ impl Http {
             .set("AUTHORIZATION", &self.token)
             .set("Content-Length", "0");
         self.rate_limiter
-            .call(Some(Route::Guild(guild_id)), request)?;
+            .call(Some(Route::GuildMember(guild_id, user_id)), request)?;
         Ok(())
     }
 
@@ -273,7 +274,7 @@ impl Http {
             ))
             .set("AUTHORIZATION", &self.token);
         self.rate_limiter
-            .call(Some(Route::Guild(guild_id)), request)?;
+            .call(Some(Route::GuildMember(guild_id, user_id)), request)?;
         Ok(())
     }
 
@@ -299,8 +300,7 @@ impl Http {
             .agent
             .delete(&api!("/guilds/{}/roles/{}", guild_id.0, role_id.0))
             .set("AUTHORIZATION", &self.token);
-        self.rate_limiter
-            .call(Some(Route::Guild(guild_id)), request)?;
+        self.rate_limiter.call(None, request)?;
         Ok(())
     }
 
@@ -309,10 +309,21 @@ impl Http {
             .agent
             .get(&api!("/guilds/{}/roles", guild_id.0))
             .set("AUTHORIZATION", &self.token);
-        let response = self
-            .rate_limiter
-            .call(Some(Route::Guild(guild_id)), request)?;
+        let response = self.rate_limiter.call(None, request)?;
         let roles = response.into_json()?;
         Ok(roles)
+    }
+
+    pub fn create_dm(&self, user_id: UserId) -> Result<Channel> {
+        let request = self
+            .agent
+            .post(&api!("/users/@me/channels"))
+            .set("AUTHORIZATION", &self.token);
+        let json = json!({ "recipient_id": user_id });
+        let response = self
+            .rate_limiter
+            .send_json(Some(Route::UserMe), request, json)?;
+        let channel = response.into_json()?;
+        Ok(channel)
     }
 }

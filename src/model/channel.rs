@@ -13,7 +13,7 @@ pub struct Channel {
     #[serde(rename = "type")]
     pub kind: ChannelKind,
     pub guild_id: Option<GuildId>,
-    pub position: u64,
+    pub position: Option<u64>,
     //#[serde(default)]
     // permission_overwrites: Vec<Overwrite>,
     pub name: Option<String>,

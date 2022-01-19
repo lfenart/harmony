@@ -124,7 +124,6 @@ fn ready(ctx: Context, _: Ready, lobbies: Arc<Mutex<Lobbies>>) -> Result<(), Err
         })
         .unwrap();
     let roles = ctx.get_guild_roles(603531141147787285.into()).unwrap();
-    println!("{:?}", roles);
     ctx.delete_guild_role(603531141147787285.into(), role.id)
         .unwrap();
     ctx.add_guild_member_role(
@@ -201,6 +200,7 @@ fn message_create(ctx: Context, msg: Message, lobbies: Arc<Mutex<Lobbies>>) -> R
 }
 
 fn ping(ctx: &Context, msg: &Message) {
+    let channel = ctx.create_dm(msg.author.id).unwrap();
     let ctx = ctx.clone();
     let channel_id = msg.channel_id;
     let timestamp = msg.timestamp;
