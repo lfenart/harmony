@@ -1,8 +1,8 @@
 use std::error::Error as StdError;
 use std::fmt;
 use std::io;
-use std::sync::mpsc::{RecvError, SendError};
 
+use crossbeam_channel::{RecvError, SendError};
 use mio::net::TcpStream;
 use tungstenite::handshake::client::ClientHandshake;
 use tungstenite::stream::MaybeTlsStream;
@@ -17,7 +17,6 @@ pub enum Error {
     Tungstenite(tungstenite::Error),
     TungsteniteHandshake(Box<HandshakeError<ClientHandshake<MaybeTlsStream<TcpStream>>>>),
     Ureq(ureq::Error),
-    Custom(Box<dyn StdError + Send>),
 }
 
 impl StdError for Error {}
@@ -32,7 +31,6 @@ impl fmt::Display for Error {
             Self::Tungstenite(err) => err.fmt(f),
             Self::TungsteniteHandshake(err) => err.fmt(f),
             Self::Ureq(err) => err.fmt(f),
-            Self::Custom(err) => err.fmt(f),
         }
     }
 }

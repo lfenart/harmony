@@ -4,7 +4,6 @@ mod event_handler;
 mod gateway_handler;
 
 use std::net::TcpStream as StdTcpStream;
-use std::sync::mpsc;
 use std::sync::Arc;
 use std::thread;
 
@@ -14,7 +13,7 @@ use serde::Deserialize;
 use tungstenite::handshake::HandshakeError;
 
 use crate::consts::{API_VERSION, GATEWAY_HOSTNAME, GATEWAY_PORT};
-use crate::gateway::{DispatchEvent, Intents, Ready};
+use crate::gateway::{Intents, Ready};
 use crate::model::Message;
 use crate::Result;
 pub use builder::ClientBuilder;
@@ -69,7 +68,7 @@ impl<'a> Client<'a> {
             Err(err) => return Err(err.into()),
         };
         let token = Arc::<str>::from(self.token);
-        let (event_sender, event_receiver) = mpsc::channel::<DispatchEvent>();
+        let (event_sender, event_receiver) = crossbeam_channel::unbounded();
         let gateway_handler =
             GatewayHandler::new(token.clone(), event_sender, socket, poll, self.intents);
         let event_handler =

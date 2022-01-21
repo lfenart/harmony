@@ -13,6 +13,7 @@ native-tls = ["tungstenite/native-tls", "_native-tls"]
 
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+crossbeam-channel = { version = "0.5", default-features = false, features = ["std"] }
 mime_guess = { version = "2", default-features = false }
 mio = { version = "0.8", default-features = false, features = ["net", "os-poll"] }
 multipart = { version = "0.18", default-features = false, features = ["client"] }

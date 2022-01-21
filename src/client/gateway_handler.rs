@@ -1,7 +1,7 @@
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use crossbeam_channel::Sender;
 use mio::net::TcpStream;
 use mio::Poll;
 use serde_json::json;

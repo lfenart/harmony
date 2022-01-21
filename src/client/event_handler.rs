@@ -1,9 +1,10 @@
+use std::sync::Arc;
+
+use crossbeam_channel::Receiver;
+
 use super::{Callback, Context};
 use crate::gateway::{DispatchEvent, DispatchEventKind, Ready};
 use crate::model::Message;
-use std::sync::mpsc::Receiver;
-use std::sync::Arc;
-
 use crate::Result;
 
 pub struct EventHandler<'a> {
