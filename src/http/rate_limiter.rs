@@ -54,7 +54,6 @@ impl RateLimiter {
                     Err(err) => return Err(err.into()),
                 }
             };
-            dbg!(response.header("X-RateLimit-Bucket"));
             let limit = response
                 .header("x-ratelimit-limit")
                 .map(|x| x.parse::<u64>().unwrap())
@@ -112,7 +111,6 @@ impl RateLimiter {
                     Err(err) => return Err(err.into()),
                 }
             };
-            dbg!(response.header("X-RateLimit-Bucket"));
             let limit = response
                 .header("x-ratelimit-limit")
                 .map(|x| x.parse::<u64>().unwrap())
@@ -170,7 +168,6 @@ impl RateLimiter {
                     Err(err) => return Err(err.into()),
                 }
             };
-            dbg!(response.header("X-RateLimit-Bucket"));
             let limit = response
                 .header("x-ratelimit-limit")
                 .map(|x| x.parse::<u64>().unwrap())
