@@ -82,16 +82,17 @@ impl GatewayHandler {
                 self.last_heartbeat = Instant::now();
                 self.heartbeat()?;
             }
-            Event::Hello(hello_event) => {
-                self.heartbeat_interval = Some(hello_event.heartbeat_interval);
-                self.identify()?;
-            }
             Event::InvalidSession(resumable) => {
                 if resumable {
                     self.resume()?;
                 } else {
                     self.identify()?;
                 }
+            }
+            Event::Reconnect => self.identify()?,
+            Event::Hello(hello_event) => {
+                self.heartbeat_interval = Some(hello_event.heartbeat_interval);
+                self.identify()?;
             }
             Event::HeartbeatAck => self.last_heartbeat_ack = true,
             Event::Unknown(_) => (),
@@ -138,6 +139,7 @@ impl GatewayHandler {
 
     #[inline]
     fn identify(&mut self) -> Result {
+        println!("identify");
         let map = json!({
             "op": 2,
             "d": {
@@ -157,6 +159,7 @@ impl GatewayHandler {
 
     #[inline]
     fn resume(&mut self) -> Result {
+        println!("resume");
         let map = json!({
             "op": 6,
             "d": {

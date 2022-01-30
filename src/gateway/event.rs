@@ -9,8 +9,9 @@ use super::{DispatchEvent, OpCode};
 pub enum Event {
     Dispatch(DispatchEvent),
     Heartbeat,
-    Hello(HelloEvent),
+    Reconnect,
     InvalidSession(bool),
+    Hello(HelloEvent),
     HeartbeatAck,
     Unknown(serde_json::Value),
 }
@@ -50,18 +51,19 @@ impl<'de> Deserialize<'de> for Event {
                 DispatchEvent::deserialize(serde_json::Value::from(map)).map(Into::into)
             }
             Ok(OpCode::Heartbeat) => Ok(Self::Heartbeat),
-            Ok(OpCode::Hello) => {
-                let d = map
-                    .remove("d")
-                    .ok_or_else(|| de::Error::missing_field("d"))?;
-                HelloEvent::deserialize(d).map(Into::into)
-            }
+            Ok(OpCode::Reconnect) => Ok(Self::Reconnect),
             Ok(OpCode::InvalidSession) => Ok(Self::InvalidSession(
                 map.remove("d")
                     .ok_or_else(|| de::Error::missing_field("d"))
                     .and_then(bool::deserialize)
                     .map_err(de::Error::custom)?,
             )),
+            Ok(OpCode::Hello) => {
+                let d = map
+                    .remove("d")
+                    .ok_or_else(|| de::Error::missing_field("d"))?;
+                HelloEvent::deserialize(d).map(Into::into)
+            }
             Ok(OpCode::HeartbeatAck) => Ok(Self::HeartbeatAck),
             Err(err) if err.is_data() => Ok(Self::Unknown(
                 map.remove("d")
