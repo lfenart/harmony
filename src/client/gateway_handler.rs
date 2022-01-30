@@ -52,7 +52,7 @@ impl GatewayHandler {
                 let now = Instant::now();
                 if self.last_heartbeat + heartbeat_interval <= now {
                     if !self.last_heartbeat_ack {
-                        self.resume()?;
+                        self.identify()?;
                         // TODO
                     }
                     self.last_heartbeat = now;
@@ -78,11 +78,22 @@ impl GatewayHandler {
                 self.sequence_number = Some(dispatch_event.sequence_number);
                 self.event_sender.send(dispatch_event)?;
             }
-            Event::HeartbeatAck => self.last_heartbeat_ack = true,
+            Event::Heartbeat => {
+                self.last_heartbeat = Instant::now();
+                self.heartbeat()?;
+            }
             Event::Hello(hello_event) => {
                 self.heartbeat_interval = Some(hello_event.heartbeat_interval);
                 self.identify()?;
             }
+            Event::InvalidSession(resumable) => {
+                if resumable {
+                    self.resume()?;
+                } else {
+                    self.identify()?;
+                }
+            }
+            Event::HeartbeatAck => self.last_heartbeat_ack = true,
             Event::Unknown(_) => (),
         }
         Ok(())
@@ -98,7 +109,11 @@ impl GatewayHandler {
         let mut events = Vec::new();
         loop {
             match self.socket.read_message() {
-                Ok(x) => events.push(serde_json::from_str::<Event>(&x.into_text()?)?),
+                Ok(x) => {
+                    let text = x.into_text();
+                    println!("event: {:?}", text);
+                    events.push(serde_json::from_str::<Event>(&text?)?);
+                }
                 Err(tungstenite::Error::Io(err))
                     if err.kind() == std::io::ErrorKind::WouldBlock =>
                 {
@@ -111,6 +126,7 @@ impl GatewayHandler {
 
     #[inline]
     fn heartbeat(&mut self) -> Result {
+        println!("heartbeat");
         let map = json!({
             "op": 1,
             "d": self.sequence_number,

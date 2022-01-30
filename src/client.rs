@@ -33,7 +33,11 @@ pub struct Client<'a> {
 impl<'a> Client<'a> {
     pub fn run(self) -> Result<()> {
         let (gateway_handler, event_handler) = self.connect()?;
-        let _ = thread::spawn(move || gateway_handler.run());
+        let _ = thread::spawn(move || {
+            if let Err(err) = gateway_handler.run() {
+                eprintln!("Err: {:?}", err);
+            }
+        });
         event_handler.run()?;
         Ok(())
     }

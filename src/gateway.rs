@@ -13,6 +13,8 @@ pub use intents::Intents;
 #[non_exhaustive]
 pub enum OpCode {
     Dispatch = 0,
+    Heartbeat = 1,
+    InvalidSession = 9,
     Hello = 10,
     HeartbeatAck = 11,
 }

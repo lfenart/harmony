@@ -85,9 +85,6 @@ impl From<Ready> for DispatchEventKind {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct MessageCreateEvent {}
-
 impl From<Message> for DispatchEventKind {
     fn from(message: Message) -> Self {
         Self::MessageCreate(Box::new(message))
