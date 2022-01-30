@@ -149,10 +149,13 @@ impl GatewayHandler {
         loop {
             match self.socket.read_message() {
                 Ok(x) => {
-                    let text = x.into_text()?;
-                    println!("event: {:?}", text);
-                    if let Ok(event) = serde_json::from_str::<Event>(&text) {
-                        events.push(event);
+                    if let tungstenite::Message::Text(text) = x {
+                        println!("event: {:?}", text);
+                        if let Ok(event) = serde_json::from_str::<Event>(&text) {
+                            events.push(event);
+                        }
+                    } else {
+                        println!("message: {:?}", x);
                     }
                 }
                 Err(tungstenite::Error::Io(err))
