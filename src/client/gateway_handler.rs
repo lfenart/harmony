@@ -50,7 +50,7 @@ impl GatewayHandler {
         }
     }
 
-    fn reconnect(&mut self) -> Result {
+    pub fn reconnect(&mut self) -> Result {
         self.socket.close(None)?;
         let gateway = {
             let url = ureq::get(&api!("/gateway"))
@@ -85,7 +85,7 @@ impl GatewayHandler {
         Ok(())
     }
 
-    pub fn run(mut self) -> Result {
+    pub fn run(&mut self) -> Result {
         loop {
             if let Some(heartbeat_interval) = self.heartbeat_interval {
                 let now = Instant::now();
