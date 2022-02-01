@@ -52,6 +52,15 @@ impl GatewayHandler {
 
     pub fn reconnect(&mut self) -> Result {
         self.socket.close(None)?;
+        let mut events = mio::Events::with_capacity(1);
+        self.poll.poll(&mut events, None)?;
+        loop {
+            match self.socket.read_message() {
+                Ok(_) => (),
+                Err(tungstenite::Error::ConnectionClosed) => break,
+                Err(err) => return Err(err.into()),
+            };
+        }
         let gateway = {
             let url = ureq::get(&api!("/gateway"))
                 .call()?
@@ -86,11 +95,13 @@ impl GatewayHandler {
     }
 
     pub fn run(&mut self) -> Result {
+        self.identify()?;
         loop {
             if let Some(heartbeat_interval) = self.heartbeat_interval {
                 let now = Instant::now();
                 if self.last_heartbeat + heartbeat_interval <= now {
                     if !self.last_heartbeat_ack {
+                        eprintln!("HeartbeatAck not received, reconnecting");
                         self.reconnect()?;
                     }
                     self.last_heartbeat = now;
@@ -130,7 +141,6 @@ impl GatewayHandler {
             Event::Reconnect => self.reconnect()?,
             Event::Hello(hello_event) => {
                 self.heartbeat_interval = Some(hello_event.heartbeat_interval);
-                self.identify()?;
             }
             Event::HeartbeatAck => self.last_heartbeat_ack = true,
             Event::Unknown(_) => (),
