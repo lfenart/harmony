@@ -9,6 +9,7 @@ use std::thread;
 
 use mio::net::TcpStream;
 use mio::{Interest, Poll, Token};
+use parking_lot::Mutex;
 use serde::Deserialize;
 use tungstenite::handshake::HandshakeError;
 
@@ -21,7 +22,7 @@ pub use context::Context;
 use event_handler::EventHandler;
 use gateway_handler::GatewayHandler;
 
-pub(crate) type Callback<'a, T> = Box<dyn FnMut(Context, T) + 'a>;
+pub(crate) type Callback<'a, T> = Arc<Mutex<dyn FnMut(Context, T) + 'a>>;
 
 pub struct Client<'a> {
     token: String,
@@ -32,20 +33,20 @@ pub struct Client<'a> {
 
 impl<'a> Client<'a> {
     pub fn run(self) -> Result<()> {
-        let (mut gateway_handler, event_handler) = self.connect()?;
-        let _ = thread::spawn(move || loop {
-            if let Err(err) = gateway_handler.run() {
+        loop {
+            let (mut gateway_handler, event_handler) = self.connect()?;
+            let _ = thread::spawn(move || loop {
+                if let Err(err) = gateway_handler.run() {
+                    eprintln!("Err: {:?}", err);
+                }
+            });
+            if let Err(err) = event_handler.run() {
                 eprintln!("Err: {:?}", err);
             }
-            if let Err(err) = gateway_handler.reconnect() {
-                eprintln!("Err: {:?}", err);
-            }
-        });
-        event_handler.run()?;
-        Ok(())
+        }
     }
 
-    fn connect(self) -> Result<(GatewayHandler, EventHandler<'a>)> {
+    fn connect(&self) -> Result<(GatewayHandler, EventHandler<'a>)> {
         let gateway = {
             let url = ureq::get(&api!("/gateway"))
                 .call()?
@@ -74,12 +75,16 @@ impl<'a> Client<'a> {
             },
             Err(err) => return Err(err.into()),
         };
-        let token = Arc::<str>::from(self.token);
+        let token = Arc::<str>::from(self.token.clone());
         let (event_sender, event_receiver) = crossbeam_channel::unbounded();
         let gateway_handler =
             GatewayHandler::new(token.clone(), event_sender, socket, poll, self.intents);
-        let event_handler =
-            EventHandler::new(token, event_receiver, self.on_ready, self.on_message_create);
+        let event_handler = EventHandler::new(
+            token,
+            event_receiver,
+            self.on_ready.clone(),
+            self.on_message_create.clone(),
+        );
         Ok((gateway_handler, event_handler))
     }
 }

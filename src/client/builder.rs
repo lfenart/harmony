@@ -1,3 +1,7 @@
+use std::sync::Arc;
+
+use parking_lot::Mutex;
+
 use super::{Callback, Client, Context};
 use crate::gateway::{Intents, Ready};
 use crate::model::Message;
@@ -19,10 +23,12 @@ impl<'a> ClientBuilder<'a> {
         Client {
             token: self.token.unwrap(),
             intents: self.intents,
-            on_ready: self.on_ready.unwrap_or_else(|| Box::new(|_, _| ())),
+            on_ready: self
+                .on_ready
+                .unwrap_or_else(|| Arc::new(Mutex::new(|_, _| ()))),
             on_message_create: self
                 .on_message_create
-                .unwrap_or_else(|| Box::new(|_, _| ())),
+                .unwrap_or_else(|| Arc::new(Mutex::new(|_, _| ()))),
         }
     }
 
@@ -45,7 +51,7 @@ impl<'a> ClientBuilder<'a> {
     where
         F: FnMut(Context, Ready) + 'a,
     {
-        self.on_ready = Some(Box::new(f));
+        self.on_ready = Some(Arc::new(Mutex::new(f)));
         self
     }
 
@@ -53,7 +59,7 @@ impl<'a> ClientBuilder<'a> {
     where
         F: FnMut(Context, Message) + 'a,
     {
-        self.on_message_create = Some(Box::new(f));
+        self.on_message_create = Some(Arc::new(Mutex::new(f)));
         self
     }
 }

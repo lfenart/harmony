@@ -29,14 +29,14 @@ impl<'a> EventHandler<'a> {
         }
     }
 
-    pub fn run(mut self) -> Result {
+    pub fn run(self) -> Result {
         let context = Context::new(self.token.clone());
         loop {
             let event = self.event_receiver.recv()?;
             match event.kind {
-                DispatchEventKind::Ready(ready) => (self.on_ready)(context.clone(), ready),
+                DispatchEventKind::Ready(ready) => (self.on_ready.lock())(context.clone(), ready),
                 DispatchEventKind::MessageCreate(message) => {
-                    (self.on_message_create)(context.clone(), *message)
+                    (self.on_message_create.lock())(context.clone(), *message)
                 }
                 DispatchEventKind::Unknown(_) => continue,
             };
