@@ -52,15 +52,7 @@ impl GatewayHandler {
 
     pub fn reconnect(&mut self) -> Result {
         self.socket.close(None)?;
-        let mut events = mio::Events::with_capacity(1);
-        self.poll.poll(&mut events, None)?;
-        loop {
-            match self.socket.read_message() {
-                Ok(_) => (),
-                Err(tungstenite::Error::ConnectionClosed) => break,
-                Err(err) => return Err(err.into()),
-            };
-        }
+        std::thread::sleep(Duration::from_secs(3));
         let gateway = {
             let url = ureq::get(&api!("/gateway"))
                 .call()?
