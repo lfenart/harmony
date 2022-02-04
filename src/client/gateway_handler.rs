@@ -51,8 +51,24 @@ impl GatewayHandler {
     }
 
     pub fn reconnect(&mut self) -> Result {
+        println!("reconnect");
         self.socket.close(None)?;
-        std::thread::sleep(Duration::from_secs(3));
+        let mut events = mio::Events::with_capacity(1);
+        'a: loop {
+            self.poll.poll(&mut events, None)?;
+            loop {
+                match self.socket.read_message() {
+                    Ok(_) => (),
+                    Err(tungstenite::Error::ConnectionClosed) => break 'a,
+                    Err(tungstenite::Error::Io(err))
+                        if err.kind() == std::io::ErrorKind::WouldBlock =>
+                    {
+                        break;
+                    }
+                    Err(err) => println!("Err: {:?}", err),
+                }
+            }
+        }
         let gateway = {
             let url = ureq::get(&api!("/gateway"))
                 .call()?
@@ -124,18 +140,20 @@ impl GatewayHandler {
                 self.heartbeat()?;
             }
             Event::InvalidSession(resumable) => {
+                self.reconnect()?;
                 if resumable {
                     self.resume()?;
-                } else {
-                    self.reconnect()?;
                 }
             }
-            Event::Reconnect => self.reconnect()?,
+            Event::Reconnect => {
+                self.reconnect()?;
+                self.resume()?;
+            }
             Event::Hello(hello_event) => {
                 self.heartbeat_interval = Some(hello_event.heartbeat_interval);
             }
             Event::HeartbeatAck => self.last_heartbeat_ack = true,
-            Event::Unknown(_) => (),
+            Event::Unknown(x) => println!("unknown event: {:?}", x),
         }
         Ok(())
     }
