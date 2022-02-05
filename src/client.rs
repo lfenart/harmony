@@ -37,11 +37,11 @@ impl<'a> Client<'a> {
             let (mut gateway_handler, event_handler) = self.connect()?;
             let _ = thread::spawn(move || loop {
                 if let Err(err) = gateway_handler.run() {
-                    eprintln!("Err: {:?}", err);
+                    eprintln!("GatewayHandler::run err: {:?}", err);
                 }
             });
             if let Err(err) = event_handler.run() {
-                eprintln!("Err: {:?}", err);
+                eprintln!("EventHandler::run err: {:?}", err);
             }
         }
     }

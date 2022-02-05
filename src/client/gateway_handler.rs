@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 use crossbeam_channel::Sender;
 use mio::net::TcpStream;
 use mio::{Interest, Poll, Token};
+use rand::Rng;
 use serde::Deserialize;
 use serde_json::json;
 use tungstenite::handshake::HandshakeError;
@@ -65,7 +66,10 @@ impl GatewayHandler {
                     {
                         break;
                     }
-                    Err(err) => println!("Err: {:?}", err),
+                    Err(err) => {
+                        println!("WebSocket::read_message err: {:?}", err);
+                        break 'a;
+                    }
                 }
             }
         }
@@ -111,6 +115,7 @@ impl GatewayHandler {
                     if !self.last_heartbeat_ack {
                         eprintln!("HeartbeatAck not received, reconnecting");
                         self.reconnect()?;
+                        self.resume()?;
                     }
                     self.last_heartbeat = now;
                     self.last_heartbeat_ack = false;
@@ -140,6 +145,8 @@ impl GatewayHandler {
                 self.heartbeat()?;
             }
             Event::InvalidSession(resumable) => {
+                let wait = rand::thread_rng().gen_range(1000..=5000);
+                std::thread::sleep(Duration::from_millis(wait));
                 self.reconnect()?;
                 if resumable {
                     self.resume()?;
