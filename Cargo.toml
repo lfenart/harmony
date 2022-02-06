@@ -17,7 +17,7 @@ crossbeam-channel = { version = "0.5", default-features = false, features = ["st
 mime_guess = { version = "2", default-features = false }
 mio = { version = "0.8", default-features = false, features = ["net", "os-poll"] }
 multipart = { version = "0.18", default-features = false, features = ["client"] }
-parking_lot = { version = "0.11", default-features = false }
+parking_lot = { version = "0.12", default-features = false }
 rand = { version = "0.8", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"] }
 serde_json = { version = "1", default-features = false }
@@ -25,3 +25,4 @@ serde_repr = { version = "0.1", default-features = false }
 tungstenite = { version = "0.16", default-features = false }
 ureq = { version = "2", default-features = false, features = ["json", "tls"] }
 _native-tls = { version = "0.2", optional = true, default-features = false, package = "native-tls" }
+crossbeam-utils = {version = "0.8", default-features = false, features = ["std"] }

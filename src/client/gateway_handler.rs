@@ -106,7 +106,7 @@ impl GatewayHandler {
         Ok(())
     }
 
-    pub fn run(&mut self) -> Result {
+    pub fn run(mut self) -> Result {
         self.identify()?;
         loop {
             if let Some(heartbeat_interval) = self.heartbeat_interval {
@@ -117,9 +117,9 @@ impl GatewayHandler {
                         self.reconnect()?;
                         self.resume()?;
                     }
+                    self.heartbeat()?;
                     self.last_heartbeat = now;
                     self.last_heartbeat_ack = false;
-                    self.heartbeat()?;
                 }
             }
             let events = self.get_events()?;
@@ -134,22 +134,20 @@ impl GatewayHandler {
             Event::Dispatch(dispatch_event) => {
                 if let Some(ready) = dispatch_event.kind.as_ready() {
                     self.session_id = Some(ready.session_id.clone());
-                    self.last_heartbeat = Instant::now();
                     self.heartbeat()?;
                 }
                 self.sequence_number = Some(dispatch_event.sequence_number);
                 self.event_sender.send(dispatch_event)?;
             }
-            Event::Heartbeat => {
-                self.last_heartbeat = Instant::now();
-                self.heartbeat()?;
-            }
+            Event::Heartbeat => self.heartbeat()?,
             Event::InvalidSession(resumable) => {
                 let wait = rand::thread_rng().gen_range(1000..=5000);
                 std::thread::sleep(Duration::from_millis(wait));
                 self.reconnect()?;
                 if resumable {
                     self.resume()?;
+                } else {
+                    self.identify()?;
                 }
             }
             Event::Reconnect => {
@@ -203,7 +201,10 @@ impl GatewayHandler {
             "d": self.sequence_number,
         });
         let message = tungstenite::Message::Text(serde_json::to_string(&map).unwrap());
+        let now = Instant::now();
         self.socket.write_message(message)?;
+        self.last_heartbeat = now;
+        self.last_heartbeat_ack = false;
         Ok(())
     }
 

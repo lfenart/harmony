@@ -6,6 +6,7 @@ mod gateway_handler;
 use std::net::TcpStream as StdTcpStream;
 use std::sync::Arc;
 use std::thread;
+use std::time::Duration;
 
 use mio::net::TcpStream;
 use mio::{Interest, Poll, Token};
@@ -34,14 +35,24 @@ pub struct Client<'a> {
 impl<'a> Client<'a> {
     pub fn run(self) -> Result<()> {
         loop {
-            let (mut gateway_handler, event_handler) = self.connect()?;
-            let _ = thread::spawn(move || loop {
-                if let Err(err) = gateway_handler.run() {
-                    eprintln!("GatewayHandler::run err: {:?}", err);
+            match self.connect() {
+                Ok((gateway_handler, event_handler)) => {
+                    crossbeam_utils::thread::scope(move |s| {
+                        s.spawn(|_| {
+                            if let Err(err) = gateway_handler.run() {
+                                eprintln!("GatewayHandler::run err: {:?}", err);
+                            }
+                        });
+                        if let Err(err) = event_handler.run() {
+                            eprintln!("EventHandler::run err: {:?}", err);
+                        }
+                    })
+                    .ok();
                 }
-            });
-            if let Err(err) = event_handler.run() {
-                eprintln!("EventHandler::run err: {:?}", err);
+                Err(err) => {
+                    eprintln!("Client::connect err: {:?}", err);
+                    thread::sleep(Duration::from_secs(5));
+                }
             }
         }
     }
