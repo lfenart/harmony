@@ -1,27 +1,18 @@
-use std::net::TcpStream as StdTcpStream;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crossbeam_channel::Sender;
-use mio::net::TcpStream;
-use mio::{Interest, Poll, Token};
+use parking_lot::Mutex;
 use rand::Rng;
-use serde::Deserialize;
-use serde_json::json;
-use tungstenite::handshake::HandshakeError;
-use tungstenite::stream::MaybeTlsStream;
-use tungstenite::WebSocket;
 
-use crate::consts::*;
-use crate::gateway::{DispatchEvent, Event, Intents};
+use crate::gateway::{DispatchEvent, Event, Gateway};
 use crate::Result;
 
+#[derive(Debug)]
 pub struct GatewayHandler {
     token: Arc<str>,
     event_sender: Sender<DispatchEvent>,
-    socket: WebSocket<MaybeTlsStream<TcpStream>>,
-    poll: Poll,
-    intents: Intents,
+    gateway: Arc<Mutex<Gateway>>,
     sequence_number: Option<u64>,
     last_heartbeat: Instant,
     heartbeat_interval: Option<Duration>,
@@ -33,16 +24,12 @@ impl GatewayHandler {
     pub fn new(
         token: Arc<str>,
         event_sender: Sender<DispatchEvent>,
-        socket: WebSocket<MaybeTlsStream<TcpStream>>,
-        poll: Poll,
-        intents: Intents,
+        gateway: Arc<Mutex<Gateway>>,
     ) -> Self {
         Self {
             token,
             event_sender,
-            socket,
-            poll,
-            intents,
+            gateway,
             sequence_number: None,
             session_id: None,
             last_heartbeat: Instant::now(),
@@ -52,58 +39,7 @@ impl GatewayHandler {
     }
 
     pub fn reconnect(&mut self) -> Result {
-        println!("reconnect");
-        self.socket.close(None)?;
-        let mut events = mio::Events::with_capacity(1);
-        'a: loop {
-            self.poll.poll(&mut events, None)?;
-            loop {
-                match self.socket.read_message() {
-                    Ok(_) => (),
-                    Err(tungstenite::Error::ConnectionClosed) => break 'a,
-                    Err(tungstenite::Error::Io(err))
-                        if err.kind() == std::io::ErrorKind::WouldBlock =>
-                    {
-                        break;
-                    }
-                    Err(err) => {
-                        println!("WebSocket::read_message err: {:?}", err);
-                        break 'a;
-                    }
-                }
-            }
-        }
-        let gateway = {
-            let url = ureq::get(&api!("/gateway"))
-                .call()?
-                .into_json::<Gateway>()?
-                .url;
-            format!("{}/?v={}&encoding=json", url, API_VERSION)
-        };
-        let mut stream = {
-            let stream = StdTcpStream::connect((GATEWAY_HOSTNAME, GATEWAY_PORT))?;
-            stream.set_nonblocking(true)?;
-            TcpStream::from_std(stream)
-        };
-        let poll = Poll::new()?;
-        poll.registry()
-            .register(&mut stream, Token(0), Interest::READABLE)?;
-        let (socket, _) = match tungstenite::client_tls(gateway, stream) {
-            Ok(x) => x,
-            Err(HandshakeError::Interrupted(mut mid_handshake)) => loop {
-                match mid_handshake.handshake() {
-                    Ok(x) => break x,
-                    Err(HandshakeError::Interrupted(new_mid_handshake)) => {
-                        mid_handshake = new_mid_handshake;
-                    }
-                    Err(err) => return Err(err.into()),
-                }
-            },
-            Err(err) => return Err(err.into()),
-        };
-        self.poll = poll;
-        self.socket = socket;
-        Ok(())
+        self.gateway.lock().reconnect()
     }
 
     pub fn run(mut self) -> Result {
@@ -164,45 +100,14 @@ impl GatewayHandler {
     }
 
     fn get_events(&mut self) -> Result<Vec<Event>> {
-        let mut events = mio::Events::with_capacity(1);
-        self.poll
-            .poll(&mut events, Some(Duration::from_millis(1)))?;
-        if events.is_empty() {
-            return Ok(vec![]);
-        }
-        let mut events = Vec::new();
-        loop {
-            match self.socket.read_message() {
-                Ok(x) => {
-                    if let tungstenite::Message::Text(text) = x {
-                        println!("event: {:?}", text);
-                        if let Ok(event) = serde_json::from_str::<Event>(&text) {
-                            events.push(event);
-                        }
-                    } else {
-                        println!("message: {:?}", x);
-                    }
-                }
-                Err(tungstenite::Error::Io(err))
-                    if err.kind() == std::io::ErrorKind::WouldBlock =>
-                {
-                    return Ok(events);
-                }
-                Err(err) => return Err(err.into()),
-            };
-        }
+        self.gateway.lock().get_events()
     }
 
     #[inline]
     fn heartbeat(&mut self) -> Result {
         println!("heartbeat");
-        let map = json!({
-            "op": 1,
-            "d": self.sequence_number,
-        });
-        let message = tungstenite::Message::Text(serde_json::to_string(&map).unwrap());
         let now = Instant::now();
-        self.socket.write_message(message)?;
+        self.gateway.lock().heartbeat(self.sequence_number)?;
         self.last_heartbeat = now;
         self.last_heartbeat_ack = false;
         Ok(())
@@ -211,41 +116,16 @@ impl GatewayHandler {
     #[inline]
     fn identify(&mut self) -> Result {
         println!("identify");
-        let map = json!({
-            "op": 2,
-            "d": {
-                "token": &*self.token,
-                "properties": {
-                    "$os": std::env::consts::OS,
-                    "$browser": "harmony",
-                    "$device": "harmony",
-                },
-                "intents": self.intents,
-            }
-        });
-        let message = tungstenite::Message::Text(serde_json::to_string(&map).unwrap());
-        self.socket.write_message(message)?;
+        self.gateway.lock().identify(&self.token)?;
         Ok(())
     }
 
     #[inline]
     fn resume(&mut self) -> Result {
         println!("resume");
-        let map = json!({
-            "op": 6,
-            "d": {
-                "token": &*self.token,
-                "session_id": self.session_id,
-                "seq": self.sequence_number
-            }
-        });
-        let message = tungstenite::Message::Text(serde_json::to_string(&map).unwrap());
-        self.socket.write_message(message)?;
+        self.gateway
+            .lock()
+            .resume(&self.token, &self.session_id, self.sequence_number)?;
         Ok(())
     }
-}
-
-#[derive(Deserialize)]
-struct Gateway {
-    url: String,
 }

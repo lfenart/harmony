@@ -1,3 +1,4 @@
+mod activity;
 mod channel;
 pub mod id;
 mod member;
@@ -6,6 +7,7 @@ mod role;
 mod user;
 mod webhook;
 
+pub use activity::Activity;
 pub use channel::Channel;
 pub use member::{Member, PartialMember};
 pub use message::Message;
