@@ -1,10 +1,8 @@
 use std::sync::Arc;
-use std::time::SystemTime;
 
 use parking_lot::Mutex;
-use serde_json::json;
 
-use crate::gateway::Gateway;
+use crate::gateway::{Gateway, Status};
 use crate::http::Http;
 use crate::model::Activity;
 use crate::Result;
@@ -23,25 +21,8 @@ impl Context {
         }
     }
 
-    pub fn set_activity(&self, activity: Activity) -> Result<()> {
-        let now = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64;
-        let map = json!({
-            "op": 3,
-            "d": {
-                "since": now,
-                "activities": [
-                    activity
-                ],
-                "status": "online",
-                "afk": false
-            }
-        });
-        let message = tungstenite::Message::Text(serde_json::to_string(&map).unwrap());
-        self.gateway.lock().write_message(message)?;
-        Ok(())
+    pub fn presence_update(&self, status: Status, activity: Option<Activity>) -> Result<()> {
+        self.gateway.lock().presence_update(status, activity)
     }
 }
 

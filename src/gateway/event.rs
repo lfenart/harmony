@@ -65,7 +65,7 @@ impl<'de> Deserialize<'de> for Event {
                 HelloEvent::deserialize(d).map(Into::into)
             }
             Ok(OpCode::HeartbeatAck) => Ok(Self::HeartbeatAck),
-            Err(err) if err.is_data() => Ok(Self::Unknown(
+            Ok(_) => Ok(Self::Unknown(
                 map.remove("d")
                     .ok_or_else(|| de::Error::missing_field("d"))?,
             )),

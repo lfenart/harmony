@@ -1,25 +1,28 @@
 mod dispatch_event;
 mod event;
 mod intents;
+mod status;
 
 use std::net::TcpStream as StdTcpStream;
 use std::ops::{Deref, DerefMut};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use mio::net::TcpStream;
 use mio::{Interest, Poll, Token};
 use serde::{de, Deserialize};
 use serde_json::json;
-use serde_repr::Deserialize_repr;
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use tungstenite::handshake::HandshakeError;
 use tungstenite::stream::MaybeTlsStream;
 use tungstenite::WebSocket;
 
 use crate::consts::*;
+use crate::model::Activity;
 use crate::Result;
 pub use dispatch_event::{DispatchEvent, DispatchEventKind, Ready};
 pub use event::Event;
 pub use intents::Intents;
+pub use status::Status;
 
 #[derive(Debug)]
 pub struct Gateway {
@@ -144,7 +147,7 @@ impl Gateway {
     #[inline]
     pub fn heartbeat(&mut self, sequence_number: Option<u64>) -> Result {
         let map = json!({
-            "op": 1,
+            "op": OpCode::Heartbeat,
             "d": sequence_number,
         });
         let message = tungstenite::Message::Text(serde_json::to_string(&map).unwrap());
@@ -155,7 +158,7 @@ impl Gateway {
     #[inline]
     pub fn identify(&mut self, token: &str) -> Result {
         let map = json!({
-            "op": 2,
+            "op": OpCode::Identify,
             "d": {
                 "token": token,
                 "properties": {
@@ -179,7 +182,7 @@ impl Gateway {
         sequence_number: Option<u64>,
     ) -> Result {
         let map = json!({
-            "op": 6,
+            "op": OpCode::Resume,
             "d": {
                 "token": token,
                 "session_id": session_id,
@@ -190,15 +193,40 @@ impl Gateway {
         self.socket.write_message(message)?;
         Ok(())
     }
+
+    #[inline]
+    pub fn presence_update(&mut self, status: Status, activity: Option<Activity>) -> Result<()> {
+        let now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        let map = json!({
+            "op": OpCode::PresenceUpdate,
+            "d": {
+                "since": now,
+                "activities": activity.into_iter().collect::<Vec<_>>(),
+                "status": status,
+                "afk": false
+            }
+        });
+        let message = tungstenite::Message::Text(serde_json::to_string(&map).unwrap());
+        self.socket.write_message(message)?;
+        Ok(())
+    }
 }
 
-#[derive(Debug, Deserialize_repr)]
+#[derive(Debug, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 #[non_exhaustive]
 pub enum OpCode {
     Dispatch = 0,
     Heartbeat = 1,
+    Identify = 2,
+    PresenceUpdate = 3,
+    VoiceStateUpdate = 4,
+    Resume = 6,
     Reconnect = 7,
+    RequestGuildMembers = 8,
     InvalidSession = 9,
     Hello = 10,
     HeartbeatAck = 11,

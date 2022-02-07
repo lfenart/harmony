@@ -1,15 +1,18 @@
 use std::env;
 
 use harmony::client::{ClientBuilder, Context};
-use harmony::gateway::{Intents, Ready};
+use harmony::gateway::{Intents, Ready, Status};
 use harmony::model::{Activity, Member, Message, Role};
 
 const PREFIX: &str = "!";
 
 fn ready(ctx: Context, _: Ready) {
     println!("Bot started");
-    ctx.set_activity(Activity::playing("Star Wars Battlefront II"))
-        .ok();
+    ctx.presence_update(
+        Status::Online,
+        Some(Activity::playing("Star Wars Battlefront II")),
+    )
+    .ok();
 }
 
 fn message_create(ctx: Context, msg: Message) {
