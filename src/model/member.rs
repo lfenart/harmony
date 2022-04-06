@@ -35,7 +35,7 @@ impl Member {
             }
             None
         }) {
-            if let Some(member) = ctx.member(guild_id, user_id.into())? {
+            if let Some(member) = ctx.get_guild_member(guild_id, user_id.into())? {
                 return Ok(Some(member));
             }
         }

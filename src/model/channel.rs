@@ -50,12 +50,12 @@ impl Channel {
             }
             None
         }) {
-            if let Some(channel) = ctx.channel(channel_id.into())? {
+            if let Some(channel) = ctx.get_channel(channel_id.into())? {
                 return Ok(Some(channel));
             }
         }
         if let Some(guild_id) = guild_id {
-            let channels = ctx.guild_channels(guild_id)?;
+            let channels = ctx.get_guild_channels(guild_id)?;
             if let Some(channel) = channels.into_iter().find(|x| {
                 x.name
                     .as_ref()

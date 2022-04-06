@@ -41,7 +41,20 @@ impl Http {
         }
     }
 
-    pub fn send_message<F>(&self, channel_id: ChannelId, f: F) -> Result<Message>
+    pub fn get_channel(&self, channel_id: ChannelId) -> Result<Option<Channel>> {
+        let request = self
+            .agent
+            .get(&api!("/channels/{}", channel_id.0))
+            .set("AUTHORIZATION", &self.token);
+        let channel = match self.rate_limiter.call(None, request) {
+            Ok(reponse) => Some(reponse.into_json()?),
+            Err(Error::Ureq(ureq::Error::Status(404, _))) => None,
+            Err(err) => return Err(err),
+        };
+        Ok(channel)
+    }
+
+    pub fn create_message<F>(&self, channel_id: ChannelId, f: F) -> Result<Message>
     where
         F: FnOnce(CreateMessage) -> CreateMessage,
     {
@@ -133,59 +146,19 @@ impl Http {
         Ok(())
     }
 
-    pub fn execute_webhook<F>(
-        &self,
-        webhook_id: WebhookId,
-        webhook_token: &str,
-        wait: bool,
-        f: F,
-    ) -> Result<Option<Message>>
-    where
-        F: FnOnce(ExecuteWebhook) -> ExecuteWebhook,
-    {
-        let msg = f(ExecuteWebhook::default());
-        let json = serde_json::to_value(msg).unwrap();
+    pub fn get_guild_channels(&self, guild_id: GuildId) -> Result<Vec<Channel>> {
         let request = self
             .agent
-            .post(&api!(
-                "/webhooks/{}/{}?wait={}",
-                webhook_id.0,
-                webhook_token,
-                wait
-            ))
+            .get(&api!("/guilds/{}/channels", guild_id.0))
             .set("AUTHORIZATION", &self.token);
-        let response =
-            self.rate_limiter
-                .send_json(Some(Route::Webhook(webhook_id)), request, json)?;
-        Ok(if wait {
-            let message = response.into_json()?;
-            Some(message)
-        } else {
-            None
-        })
+        let response = self
+            .rate_limiter
+            .call(Some(Route::Guild(guild_id)), request)?;
+        let channels = response.into_json()?;
+        Ok(channels)
     }
 
-    pub fn webhook_delete_message(
-        &self,
-        webhook_id: WebhookId,
-        webhook_token: &str,
-        message_id: MessageId,
-    ) -> Result {
-        let request = self
-            .agent
-            .delete(&api!(
-                "/webhooks/{}/{}/messages/{}",
-                webhook_id.0,
-                webhook_token,
-                message_id.0
-            ))
-            .set("AUTHORIZATION", &self.token);
-        self.rate_limiter
-            .call(Some(Route::Webhook(webhook_id)), request)?;
-        Ok(())
-    }
-
-    pub fn member(&self, guild_id: GuildId, user_id: UserId) -> Result<Option<Member>> {
+    pub fn get_guild_member(&self, guild_id: GuildId, user_id: UserId) -> Result<Option<Member>> {
         let request = self
             .agent
             .get(&api!("/guilds/{}/members/{}", guild_id.0, user_id.0))
@@ -199,6 +172,18 @@ impl Http {
             Err(err) => return Err(err),
         };
         Ok(member)
+    }
+
+    pub fn list_guild_members(&self, guild_id: GuildId) -> Result<Vec<Member>> {
+        let request = self
+            .agent
+            .get(&api!("/guilds/{}/members?limit=1000", guild_id.0))
+            .set("AUTHORIZATION", &self.token);
+        let response = self
+            .rate_limiter
+            .call(Some(Route::Guild(guild_id)), request)?;
+        let members = response.into_json()?;
+        Ok(members)
     }
 
     pub fn search_guild_members(&self, guild_id: GuildId, query: &str) -> Result<Vec<Member>> {
@@ -215,31 +200,6 @@ impl Http {
             .call(Some(Route::Guild(guild_id)), request)?;
         let members = response.into_json()?;
         Ok(members)
-    }
-
-    pub fn channel(&self, channel_id: ChannelId) -> Result<Option<Channel>> {
-        let request = self
-            .agent
-            .get(&api!("/channels/{}", channel_id.0))
-            .set("AUTHORIZATION", &self.token);
-        let channel = match self.rate_limiter.call(None, request) {
-            Ok(reponse) => Some(reponse.into_json()?),
-            Err(Error::Ureq(ureq::Error::Status(404, _))) => None,
-            Err(err) => return Err(err),
-        };
-        Ok(channel)
-    }
-
-    pub fn guild_channels(&self, guild_id: GuildId) -> Result<Vec<Channel>> {
-        let request = self
-            .agent
-            .get(&api!("/guilds/{}/channels", guild_id.0))
-            .set("AUTHORIZATION", &self.token);
-        let response = self
-            .rate_limiter
-            .call(Some(Route::Guild(guild_id)), request)?;
-        let channels = response.into_json()?;
-        Ok(channels)
     }
 
     pub fn add_guild_member_role(
@@ -283,6 +243,16 @@ impl Http {
         Ok(())
     }
 
+    pub fn get_guild_roles(&self, guild_id: GuildId) -> Result<Vec<Role>> {
+        let request = self
+            .agent
+            .get(&api!("/guilds/{}/roles", guild_id.0))
+            .set("AUTHORIZATION", &self.token);
+        let response = self.rate_limiter.call(None, request)?;
+        let roles = response.into_json()?;
+        Ok(roles)
+    }
+
     pub fn create_guild_role<F>(&self, guild_id: GuildId, f: F) -> Result<Role>
     where
         F: FnOnce(CreateGuildRole) -> CreateGuildRole,
@@ -309,16 +279,6 @@ impl Http {
         Ok(())
     }
 
-    pub fn get_guild_roles(&self, guild_id: GuildId) -> Result<Vec<Role>> {
-        let request = self
-            .agent
-            .get(&api!("/guilds/{}/roles", guild_id.0))
-            .set("AUTHORIZATION", &self.token);
-        let response = self.rate_limiter.call(None, request)?;
-        let roles = response.into_json()?;
-        Ok(roles)
-    }
-
     pub fn create_dm(&self, user_id: UserId) -> Result<Channel> {
         let request = self
             .agent
@@ -328,5 +288,57 @@ impl Http {
         let response = self.rate_limiter.send_json(None, request, json)?;
         let channel = response.into_json()?;
         Ok(channel)
+    }
+
+    pub fn execute_webhook<F>(
+        &self,
+        webhook_id: WebhookId,
+        webhook_token: &str,
+        wait: bool,
+        f: F,
+    ) -> Result<Option<Message>>
+    where
+        F: FnOnce(ExecuteWebhook) -> ExecuteWebhook,
+    {
+        let msg = f(ExecuteWebhook::default());
+        let json = serde_json::to_value(msg).unwrap();
+        let request = self
+            .agent
+            .post(&api!(
+                "/webhooks/{}/{}?wait={}",
+                webhook_id.0,
+                webhook_token,
+                wait
+            ))
+            .set("AUTHORIZATION", &self.token);
+        let response =
+            self.rate_limiter
+                .send_json(Some(Route::Webhook(webhook_id)), request, json)?;
+        Ok(if wait {
+            let message = response.into_json()?;
+            Some(message)
+        } else {
+            None
+        })
+    }
+
+    pub fn delete_webhook_message(
+        &self,
+        webhook_id: WebhookId,
+        webhook_token: &str,
+        message_id: MessageId,
+    ) -> Result {
+        let request = self
+            .agent
+            .delete(&api!(
+                "/webhooks/{}/{}/messages/{}",
+                webhook_id.0,
+                webhook_token,
+                message_id.0
+            ))
+            .set("AUTHORIZATION", &self.token);
+        self.rate_limiter
+            .call(Some(Route::Webhook(webhook_id)), request)?;
+        Ok(())
     }
 }

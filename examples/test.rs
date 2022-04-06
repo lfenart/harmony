@@ -40,7 +40,7 @@ fn message_create(ctx: Context, msg: Message) {
 }
 
 fn ping(ctx: &Context, msg: &Message) -> harmony::Result {
-    let reply = ctx.send_message(msg.channel_id, |m| m.content("Pong!"))?;
+    let reply = ctx.create_message(msg.channel_id, |m| m.content("Pong!"))?;
     let duration = reply.timestamp - msg.timestamp;
     ctx.edit_message(reply.channel_id, reply.id, |m| {
         m.content(format!(
@@ -53,13 +53,13 @@ fn ping(ctx: &Context, msg: &Message) -> harmony::Result {
 
 fn newrole(ctx: &Context, msg: &Message, args: &[&str]) -> harmony::Result {
     if args.is_empty() {
-        ctx.send_message(msg.channel_id, |m| m.content("Not enough arguments"))?;
+        ctx.create_message(msg.channel_id, |m| m.content("Not enough arguments"))?;
         return Ok(());
     }
     let guild_id = if let Some(guild_id) = msg.guild_id {
         guild_id
     } else {
-        ctx.send_message(msg.channel_id, |m| m.content("Not in a guild"))?;
+        ctx.create_message(msg.channel_id, |m| m.content("Not in a guild"))?;
         return Ok(());
     };
     ctx.create_guild_role(guild_id, |r| r.name(&args[0]))?;
@@ -68,13 +68,13 @@ fn newrole(ctx: &Context, msg: &Message, args: &[&str]) -> harmony::Result {
 
 fn deleterole(ctx: &Context, msg: &Message, args: &[&str]) -> harmony::Result {
     if args.is_empty() {
-        ctx.send_message(msg.channel_id, |m| m.content("Not enough arguments"))?;
+        ctx.create_message(msg.channel_id, |m| m.content("Not enough arguments"))?;
         return Ok(());
     }
     let guild_id = if let Some(guild_id) = msg.guild_id {
         guild_id
     } else {
-        ctx.send_message(msg.channel_id, |m| m.content("Not in a guild"))?;
+        ctx.create_message(msg.channel_id, |m| m.content("Not in a guild"))?;
         return Ok(());
     };
     let role_id = if let Some(role) = ctx
@@ -84,7 +84,7 @@ fn deleterole(ctx: &Context, msg: &Message, args: &[&str]) -> harmony::Result {
     {
         role.id
     } else {
-        ctx.send_message(msg.channel_id, |m| m.content("Role not found"))?;
+        ctx.create_message(msg.channel_id, |m| m.content("Role not found"))?;
         return Ok(());
     };
     ctx.delete_guild_role(guild_id, role_id)?;
@@ -93,25 +93,25 @@ fn deleterole(ctx: &Context, msg: &Message, args: &[&str]) -> harmony::Result {
 
 fn giverole(ctx: &Context, msg: &Message, args: &[&str]) -> harmony::Result {
     if args.len() < 2 {
-        ctx.send_message(msg.channel_id, |m| m.content("Not enough arguments"))?;
+        ctx.create_message(msg.channel_id, |m| m.content("Not enough arguments"))?;
         return Ok(());
     }
     let guild_id = if let Some(guild_id) = msg.guild_id {
         guild_id
     } else {
-        ctx.send_message(msg.channel_id, |m| m.content("Not in a guild"))?;
+        ctx.create_message(msg.channel_id, |m| m.content("Not in a guild"))?;
         return Ok(());
     };
     let user_id = if let Some(member) = Member::parse(ctx, guild_id, args[0])? {
         member.user.id
     } else {
-        ctx.send_message(msg.channel_id, |m| m.content("Member not found"))?;
+        ctx.create_message(msg.channel_id, |m| m.content("Member not found"))?;
         return Ok(());
     };
     let role_id = if let Some(role) = Role::parse(ctx, guild_id, args[1])? {
         role.id
     } else {
-        ctx.send_message(msg.channel_id, |m| m.content("Role not found"))?;
+        ctx.create_message(msg.channel_id, |m| m.content("Role not found"))?;
         return Ok(());
     };
     ctx.add_guild_member_role(guild_id, user_id, role_id)?;
@@ -120,25 +120,25 @@ fn giverole(ctx: &Context, msg: &Message, args: &[&str]) -> harmony::Result {
 
 fn removerole(ctx: &Context, msg: &Message, args: &[&str]) -> harmony::Result {
     if args.len() < 2 {
-        ctx.send_message(msg.channel_id, |m| m.content("Not enough arguments"))?;
+        ctx.create_message(msg.channel_id, |m| m.content("Not enough arguments"))?;
         return Ok(());
     }
     let guild_id = if let Some(guild_id) = msg.guild_id {
         guild_id
     } else {
-        ctx.send_message(msg.channel_id, |m| m.content("Not in a guild"))?;
+        ctx.create_message(msg.channel_id, |m| m.content("Not in a guild"))?;
         return Ok(());
     };
     let user_id = if let Some(member) = Member::parse(ctx, guild_id, args[0])? {
         member.user.id
     } else {
-        ctx.send_message(msg.channel_id, |m| m.content("Member not found"))?;
+        ctx.create_message(msg.channel_id, |m| m.content("Member not found"))?;
         return Ok(());
     };
     let role_id = if let Some(role) = Role::parse(ctx, guild_id, args[1])? {
         role.id
     } else {
-        ctx.send_message(msg.channel_id, |m| m.content("Role not found"))?;
+        ctx.create_message(msg.channel_id, |m| m.content("Role not found"))?;
         return Ok(());
     };
     ctx.remove_guild_member_role(guild_id, user_id, role_id)?;

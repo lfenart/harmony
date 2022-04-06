@@ -2,7 +2,7 @@ use std::ops::BitOr;
 
 use serde::{Serialize, Serializer};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy)]
 pub struct Intents(pub u64);
 
 impl Intents {
@@ -21,12 +21,6 @@ impl Intents {
     pub const DIRECT_MESSAGES: Self = Self(1 << 12);
     pub const DIRECT_MESSAGE_REACTIONS: Self = Self(1 << 13);
     pub const DIRECT_MESSAGE_TYPING: Self = Self(1 << 14);
-}
-
-impl Default for Intents {
-    fn default() -> Self {
-        Self(0)
-    }
 }
 
 impl BitOr<Self> for Intents {
